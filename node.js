@@ -62,10 +62,31 @@
 
     Function.prototype.toString = function() {
       if (this.args) {
-        return "(" + this.args.toString() + ")->{\n" + this.body.toString() + "}";
+        return "(" + this.args.toString() + ")->{" + this.body.toString() + "}";
       } else {
-        return "->{\n" + this.body.toString() + "}";
+        return "->{" + this.body.toString() + "}";
       }
+    };
+
+    Function.prototype.toESC = function() {
+      var params;
+      if (this.args) {
+        params = this.args.map(function(x) {
+          return x.toESC();
+        });
+      } else {
+        params = null;
+      }
+      return {
+        type: "FunctionExpression",
+        id: null,
+        params: params,
+        defaults: [],
+        rest: null,
+        body: this.body.toESC(),
+        generator: true,
+        expression: false
+      };
     };
 
     return Function;
@@ -191,8 +212,7 @@
       block = this.block.map(function(x) {
         return x.toESC();
       });
-      console.log(setVar(this.env));
-      block.unshift(setVar(this.env));
+      block = (setVar(this.env)).concat(block);
       return {
         type: this.type,
         body: block
@@ -216,14 +236,20 @@
 
   setVar = function(env) {
     var vars;
-    vars = env.variable.map(function(x) {
-      return makeVarDeclarator(x);
-    });
-    return {
-      type: "VariableDeclaration",
-      declarations: vars,
-      kind: "var"
-    };
+    if (env.variable.length > 0) {
+      vars = env.variable.map(function(x) {
+        return makeVarDeclarator(x);
+      });
+      return [
+        {
+          type: "VariableDeclaration",
+          declarations: vars,
+          kind: "var"
+        }
+      ];
+    } else {
+      return [];
+    }
   };
 
   exports.Assign = Assign = (function() {

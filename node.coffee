@@ -17,9 +17,24 @@ exports.Function = class Function
     @type = "FunctionExpression"
   toString:()->
     if @args
-      return "("+@args.toString()+")->{\n"+@body.toString()+"}"
+      return "("+@args.toString()+")->{"+@body.toString()+"}"
     else
-      return "->{\n"+@body.toString()+"}"
+      return "->{"+@body.toString()+"}"
+  toESC:()->
+    if @args
+      params = @args.map((x)-> return x.toESC())
+    else
+      params = null
+    return {
+      type: "FunctionExpression";
+      id: null;
+      params: params;
+      defaults: [ ];
+      rest: null;
+      body: @body.toESC();
+      generator: true;
+      expression: false;
+    }
 
 exports.FourArthmeticOperation = class FourArthmeticOperation
   constructor:(@left,@op,@right)->
@@ -32,8 +47,6 @@ exports.FourArthmeticOperation = class FourArthmeticOperation
     left:@left.toESC();
     right:@right.toESC()
     }
-
-#console.log new Function(1,2).toString()
 
 exports.Literal = class Literal
   constructor:(@literal)->
@@ -66,8 +79,7 @@ exports.Block = class Block
     return @block.map((x)-> return x.toString())
   toESC:()->
     block = @block.map((x)-> return x.toESC())
-    console.log setVar @env
-    block.unshift setVar @env
+    block = (setVar @env).concat block
     return{type:@type, body: block}
 
 makeVarDeclarator = (id)->
@@ -78,12 +90,15 @@ makeVarDeclarator = (id)->
   }
 
 setVar = (env)->
-  vars = env.variable.map (x)-> return makeVarDeclarator x
-  {
-    type:"VariableDeclaration";
-    declarations:vars
-    kind:"var";
-  }
+  if env.variable.length > 0
+    vars = env.variable.map (x)-> return makeVarDeclarator x
+    return [{
+      type:"VariableDeclaration";
+      declarations:vars
+      kind:"var";
+    }]
+  else
+    return []
 
 exports.Assign = class Assign
   constructor:(@left,@right)->

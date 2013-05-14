@@ -27,7 +27,7 @@ expr = ex:(additive / func) {return ex;}
 literal = integer
 
 whiteSpace = [\u0009\u000B\u000C\u0020\u00A0\uFEFF\u1680\u180E\u2000-\u200A\u202F\u205F\u3000]
-  / "\r" / s:("\\" "\r"? "\n") {return s.join("");}
+  / "\r" / s:("\\" "\r"? "\n") { return s.join("");}
 
 _  = __?
 __ = ws:whiteSpace+ {return ws.join("");}
@@ -44,22 +44,17 @@ identifier =  head:[a-zA-Z] tail:[a-zA-Z0-9]* {
    return new node.Identifier(tail.join(""));
 }
 
-args = a:identifier as:(_ ("," TERMINATOR? / TERMINATOR) _ identifier ){
+args = a:identifier as:(_ ("," TERMINATOR? / TERMINATOR) _ identifier )* {
      return [a].concat(as.map(function(x){return x[3]}));
-}
+} 
 
-funcBody = _ TERMINDENT b:block DEDENT {return new node.Block(b); }
+//preprocessor の問題？DEDENT -> DEDENT TERMに変更
+funcBody = _ TERMINDENT b:block DEDENT TERM{return b }
     / _ s:statement {return new node.Block([s]); }
 
-func = params:("(" _ (TERMINDENT p:args DEDENT TERMINATOR {return p;} / args)? _ ")" _ )? "->" body:funcBody? {
-
+func = params:("(" _ (TERMINDENT p:args DEDENT TERMINATOR {return p;} / args)? _ ")" _ )? "->" _ body:funcBody? {
+return new node.Function(params[2],body);
 }
-
-//func = "(" args:args ")" "->" body:funcBody {
-//     return new node.Function(args ,body);
-//}
-
-
 
 
 assign = left:identifier _ "=" !"=" right:(TERMINDENT e:expr DEDENT { return e; } / TERMINATOR? _ e:expr   { return e; }){  

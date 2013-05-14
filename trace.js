@@ -16,7 +16,7 @@
       case "ExpressionStatement":
         return exports.trace(Node.expr, env);
       case "FunctionExpression":
-        return env;
+        return exports.trace(Node.body, env);
       case 'BinaryExpression':
         return env;
       case "BlockStatement":

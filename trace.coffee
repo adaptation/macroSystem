@@ -8,7 +8,7 @@ exports.trace = (Node,env=null)->
     when "ExpressionStatement"
       exports.trace Node.expr,env
     when "FunctionExpression"
-      env
+      exports.trace Node.body,env
     when 'BinaryExpression'
       env
 #    when "Literal"

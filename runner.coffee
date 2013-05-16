@@ -2,13 +2,13 @@ PEG = require './node_modules/pegjs/lib/peg'
 ecg = require 'escodegen'
 fs = require 'fs'
 TR = require './trace.coffee'
-{Preprocessor} = require './node_modules/preprocessor.js'
+{Preprocessor} = require './preprocessor.js'
 source = "./input.coffee"
 
 csExpression = fs.readFileSync source , "utf8"
 input = Preprocessor.processSync csExpression
 
-#console.log input
+console.log input
 
 parser = PEG.buildParser fs.readFileSync('scratch.pegjs').toString()
 

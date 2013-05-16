@@ -21,7 +21,7 @@ p = TR.trace ast
 
 b = p.toESC()
 
-console.log b.body[0].body[0].expression.body.body[0]
+#console.log b.body[0].body[0].expression.body.body[0]
 
 func = {
   type: "FunctionExpression";
@@ -38,7 +38,7 @@ func = {
 }
 
 a = ecg.generate b
-console.log a
+#console.log a
 
 #file = fs.openSync("./log.txt",'a')
 

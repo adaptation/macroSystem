@@ -4,10 +4,16 @@ test2.coffee
 test2.js
 string.pegjs
 redux.pegjs
-log.txt
+/nodes.coffee
+/nodes.js
+/functional-helpers.coffee
+/functional-helpers.js
+/helpers.coffee
+/helpers.js
+/preprocessor.coffee
+/preprocessor.js
 
 /node_module/StringScanner/
 /node_module/pegjs/
 /node_module/underscore/
 /node_module/escodegen/
-/node_module/.bin/

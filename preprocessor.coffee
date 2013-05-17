@@ -78,11 +78,13 @@ StringScanner = require 'StringScanner'
   # s= if scan sucseed then string else null
   p: (s) ->
     #emit = (type, data) -> output += data if type is 'data'
+    console.log "p s:", s
     if s? then @emit 'data', s
+    console.log "rest string:",@ss.string().slice(@ss.pos)
     s
 
   scan: (r) ->
-    console.log  r
+    console.log  "scan r:", r
     @p @ss.scan r
 
   processInput = (isEnd) -> (data) ->
@@ -93,9 +95,11 @@ StringScanner = require 'StringScanner'
 
     #do until end of scan
     until @ss.eos()
-      console.log "ss:",@ss
+      console.log "\n-----------------\nss:",@ss
       console.log 'context:',@context
       console.log "peek:", @peek()
+      console.log "base:",@base
+      console.log "indents:", @indents
       switch @peek()
         when null, INDENT, '#{', '[', '(', '{'
           # bol() isi Begining Of Line=>Returns true if the scan pointer is at the beginning of a line (right after \n) or the beginning of the string
@@ -110,12 +114,16 @@ StringScanner = require 'StringScanner'
                 throw new Error "inconsistent base indentation"
             else
               tbase = @scan /// [#{ws}]* ///
+              console.log "tbase:",tbase
+              # if tbase="",@base=/(?:)/
               @base = /// #{  tbase } ///
+              console.log "base:",@base
               # @base = /// #{@scan /// [#{ws}]* ///} ///
 
             # move through each level of indentation
             indentIndex = 0
             while indentIndex < @indents.length
+              console.log "Indent comming!"
               indent = @indents[indentIndex]
               if @ss.check /// #{indent} ///
                 # an existing indent
@@ -271,7 +279,7 @@ StringScanner = require 'StringScanner'
     pre.emit = (type, data) ->
       if type is 'data'
         output += data
-      console.log "output:" ,output
+        console.log "output:" ,output
       output
     pre.processData input
     do pre.processEnd

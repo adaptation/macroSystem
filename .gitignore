@@ -4,6 +4,7 @@ test2.coffee
 test2.js
 string.pegjs
 redux.pegjs
+log.txt
 /nodes.js
 /functional-helpers.js
 /helpers.js

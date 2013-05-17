@@ -135,14 +135,16 @@
     };
 
     Preprocessor.prototype.p = function(s) {
+      console.log("p s:", s);
       if (s != null) {
         this.emit('data', s);
       }
+      console.log("rest string:", this.ss.string().slice(this.ss.pos));
       return s;
     };
 
     Preprocessor.prototype.scan = function(r) {
-      console.log(r);
+      console.log("scan r:", r);
       return this.p(this.ss.scan(r));
     };
 
@@ -154,9 +156,11 @@
         }
         console.log(this.ss.str.length);
         while (!this.ss.eos()) {
-          console.log("ss:", this.ss);
+          console.log("\n-----------------\nss:", this.ss);
           console.log('context:', this.context);
           console.log("peek:", this.peek());
+          console.log("base:", this.base);
+          console.log("indents:", this.indents);
           switch (this.peek()) {
             case null:
             case INDENT:
@@ -175,10 +179,13 @@
                   }
                 } else {
                   tbase = this.scan(RegExp("[" + ws + "]*"));
+                  console.log("tbase:", tbase);
                   this.base = RegExp("" + tbase);
+                  console.log("base:", this.base);
                 }
                 indentIndex = 0;
                 while (indentIndex < this.indents.length) {
+                  console.log("Indent comming!");
                   indent = this.indents[indentIndex];
                   if (this.ss.check(RegExp("" + indent))) {
                     this.scan(RegExp("" + indent));
@@ -362,8 +369,8 @@
       pre.emit = function(type, data) {
         if (type === 'data') {
           output += data;
+          console.log("output:", output);
         }
-        console.log("output:", output);
         return output;
       };
       pre.processData(input);

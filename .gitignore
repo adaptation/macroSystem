@@ -5,6 +5,7 @@ test2.js
 string.pegjs
 redux.pegjs
 log.txt
+*.js
 /nodes.js
 /functional-helpers.js
 /helpers.js
@@ -14,3 +15,4 @@ StringScanner/
 pegjs/
 underscore/
 escodegen/
+.bin/

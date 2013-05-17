@@ -10,7 +10,7 @@ log.txt
 /helpers.js
 /preprocessor.js
 
-node_module/StringScanner/
-node_module/pegjs/
-node_module/underscore/
-node_module/escodegen/
+StringScanner/
+pegjs/
+underscore/
+escodegen/

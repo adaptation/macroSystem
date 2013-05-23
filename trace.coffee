@@ -1,4 +1,5 @@
 _ = require 'underscore'
+node = require './node.coffee'
 
 exports.trace = (Node,env=null)->
   switch Node.type
@@ -11,9 +12,19 @@ exports.trace = (Node,env=null)->
       exports.trace Node.body,env
     when 'BinaryExpression'
       env
-#    when "Literal"
-#    when "Rankentifier"
-#    when "Operator"
+    when 'IfStatement'
+      exports.trace Node.body
+      if Node.else
+        exports.trace Node.else
+    when 'Class'
+      if Node.name?
+        addVariable(Node.name.toString(),env)
+        env.className = Node.name
+      else
+        env.className = new node.Identifier("_Class")
+      exports.trace Node.body,env
+    when "Literal","Operator", "Indentifier"
+      env
     when "BlockStatement"
       if env is null
         newEnv = {variable:[],parent:null}
@@ -23,14 +34,22 @@ exports.trace = (Node,env=null)->
       env
     when "AssignmentExpression"
       left = Node.left.toString()
-      if !(_.find env.variable,(x)-> x is left)
-        env.variable.push left
+      addVariable(left,env)
+      exports.trace Node.right,env
+      env
+    when "InsAssign"
+      exports.trace Node.right
+      Node.className = env.parent.className
       env
     else
       console.log "Trace error"
       env
 
 traceBlock = (block,env)->
-  for  elem in block
+  for elem in block
     exports.trace elem,env
   env
+
+addVariable = (v,env)->
+  if !(_.find env.variable,(x)-> x is v)
+    env.variable.push v

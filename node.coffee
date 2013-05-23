@@ -4,7 +4,7 @@ exports.Program = class Program
   toString:()->
     @body.map((x)->x.toString())
   toESC:()->
-    return {type:@type, body: @body.map((x)-> return x.toESC());}
+    return {type:@type, body: @body.map((x)-> return x.toESC())}
 
 exports.Expr = class Expr
   constructor:(@expr)->
@@ -17,23 +17,23 @@ exports.Function = class Function
     @type = "FunctionExpression"
   toString:()->
     if @args
-      return "("+@args.toString()+")->{"+@body.toString()+"}"
+      return "("+@args.toString()+")->"+@body.toString()
     else
-      return "->{"+@body.toString()+"}"
+      return "->"+@body.toString()
   toESC:()->
     if @args
       params = @args.map((x)-> return x.toESC())
     else
       params = null
     return {
-      type: "FunctionExpression";
-      id: null;
-      params: params;
-      defaults: [ ];
-      rest: null;
-      body: @body.toESC();
-      generator: true;
-      expression: false;
+      type: "FunctionExpression",
+      id: null,
+      params: params,
+      defaults: [ ],
+      rest: null,
+      body: @body.toESC(),
+      generator: true,
+      expression: false
     }
 
 exports.FourArthmeticOperation = class FourArthmeticOperation
@@ -43,8 +43,8 @@ exports.FourArthmeticOperation = class FourArthmeticOperation
     return "("+@left.toString()+" "+@op.toString()+" "+@right.toString()+")"
   toESC:()->
     return {type: @type,
-    operator: @op.toESC();
-    left:@left.toESC();
+    operator: @op.toESC(),
+    left:@left.toESC(),
     right:@right.toESC()
     }
 
@@ -76,27 +76,33 @@ exports.Block = class Block
   constructor:(@block)->
     @type = "BlockStatement"
   toString:()->
-    return @block.map((x)-> return x.toString())
+    return "{" + @block.map((x)-> return x.toString()) + "}"
   toESC:()->
     block = @block.map((x)-> return x.toESC())
     block = (setVar @env).concat block
     return{type:@type, body: block}
 
-makeVarDeclarator = (id)->
+makeId = (id)->
+  return {type: "Identifier",name: id.toString()}
+
+makeVarDeclarator = (id,init)->
   {
     type:"VariableDeclarator",
-    id: {type: "Identifier",name: id.toString()},
-    init:null
+    id: makeId(id) ,
+    init:init
   }
+
+makeVarDeclaration = (vars)->
+  return {
+      type:"VariableDeclaration",
+      declarations:vars,
+      kind:"var"
+    }
 
 setVar = (env)->
   if env.variable.length > 0
-    vars = env.variable.map (x)-> return makeVarDeclarator x
-    return [{
-      type:"VariableDeclaration";
-      declarations:vars
-      kind:"var";
-    }]
+    vars = env.variable.map (x)-> return makeVarDeclarator x,null
+    return [ makeVarDeclaration vars ]
   else
     return []
 
@@ -107,8 +113,97 @@ exports.Assign = class Assign
     return @left.toString() + "=" + @right.toString()
   toESC:()->
     return {
-      type:@type;
-      operator:"=";
-      left:@left.toESC();
+      type:@type,
+      operator:"=",
+      left:@left.toESC(),
       right:@right.toESC()
       }
+
+@Conditional = class Conditional
+  constructor:(@cond,@body,@else)->
+    @type = "IfStatement"
+  toString:()->
+    if @else?
+      return " if " + @cond.toString() + " \n " + @body.toString() + " \n else " + @else.toString()
+    else
+      return " if " + @cond.toString() + " \n " + @body.toString() + " \n"
+  toESC:()->
+    if @else
+      alternate = @else.toESC()
+    else
+      alternate = null
+    return {
+      type:@type,
+      test:@cond.toESC(),
+      consequent:@body.toESC(),
+      alternate:alternate
+    }
+
+@Class = class Class
+  constructor:(@name,@parent,@body)->
+    @type = 'Class'
+  toString:()->
+    if @parent
+      p = "extends "+@parent.toString()
+    else
+      p = ""
+    "class "+@name.toString()+p+"\n"+@body.toString()
+  toESC:()->
+    console.log "Class body",@body
+    r = {
+        type: "CallExpression";
+        callee:{
+            type: "FunctionExpression",
+            id: null,
+            params: [],
+            defaults: [ ],
+            rest: null,
+            body: @body.toESC(),
+            generator: true,
+            expression: false
+        },
+        arguments: [  ]
+    }
+    console.log @name
+    if @name?
+      return {
+        type:"AssignmentExpression",
+        operator:"=",
+        left:@name.toESC(),
+        right: r
+      }
+    else
+      return r
+
+@InsAssign = class InsAssign
+  constructor:(@left,@right)->
+    @type="InsAssign"
+  toString:()->
+    return @left.toString() + ":" + @right.toString()
+  toESC:()->
+    console.log "class Name", @className
+    return {
+      type:"AssignmentExpression",
+      operator:"=",
+      left: makeMember(makeMember(@className.toESC(),makeId("prototype")), @left.toESC()),
+      right:@right.toESC()
+      }
+
+makeObj = (properties)->
+  return {
+    type:"ObjectExpression",
+    properties:properties
+  }
+
+makeMember = (obj,prop)->
+  return {
+    type: "MemberExpression",
+    object:obj,
+    property:prop,
+    computed:false
+  }
+
+setExtends = (ex)->
+  extend = []
+  extend.push makeVarDeclarator("__hasProp",makeMember(makeObj([]), makeId("hasOwnProperty")))
+  return [ makeVarDeclaration extend ]

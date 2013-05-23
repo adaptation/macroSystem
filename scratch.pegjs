@@ -15,15 +15,15 @@ toplevelBlock
 toplevelStatement = s:statement { return s; }
 
 block = s:statement ss:(_ TERMINATOR _ statement)* TERMINATOR? {
-if( ss != null ){
-return new node.Block(us.foldl(ss.map(function(as){ return as[3]; }) , function(ary, elem){ ary.push(elem); return ary; }, [s]));}
+  return new node.Block([s].concat(ss.map(function(s){ return s[3]; })));
 }
 
 
-statement = ex:(expr) {return new node.Expr(ex);} / conditional
+statement = ex:(assign /expr) {return new node.Expr(ex);}
+  / conditional
 
 //expr = expressionworthy
-expr = ex:(assign / additive / func) {return ex;}
+expr = ex:(func / class / additive) {return ex;}
 
 
 literal = integer
@@ -41,10 +41,10 @@ TERMINATOR = t:(_ TERM)+ {return t.join("");}
 TERMINDENT = t:(TERMINATOR INDENT) {return t.join("");}
 
 args = a:identifier as:(_ ("," TERMINATOR? / TERMINATOR) _ identifier )* {
-     return [a].concat(as.map(function(x){return x[3]}));
+  return [a].concat(as.map(function(x){return x[3]}));
 }
 
-//preprocessor の問題？DEDENT -> DEDENT TERMに変更
+//preprocessor DEDENT -> DEDENT TERM
 funcBody = _ TERMINDENT b:block DEDENT TERM{return b }
     / _ s:statement {return new node.Block([s]); }
 
@@ -66,6 +66,30 @@ conditionalBody = _ TERMINDENT b:block DEDENT TERM{ return {block: b}; }
     / _ THEN { return {block: null}; }
 elseClause = _ TERMINATOR? _ ELSE b:elseBody { return b; }
 elseBody = funcBody
+
+class = CLASS name:(_ identifier)? parent:(_ EXTENDS _ extendee)? body:classBody{
+  name = name ? name[1] : null //new node.Identifier("_Class");
+  parent = parent ? parent[3] : null;
+  return new node.Class(name,parent,body)
+}
+extendee = identifier
+classBody = _ TERMINDENT b:classBlock DEDENT TERM{ return b; }
+    / _ THEN _ s:classStatement { return s; }
+classBlock = s:classStatement ss:(_ TERMINATOR _ classStatement)* TERMINATOR?{
+  return new node.Block([s].concat(ss.map(function(s){ return s[3]; })));
+}
+classStatement
+  = ex:(instanceAssignment / expr) {return new node.Expr(ex);}
+  / conditional
+instanceAssignment = key:ObjectIni _ ":" _ e:
+  ( TERMINDENT e:expr DEDENT { return {expr: e}; }
+      / TERMINATOR? _ e:expr { return {expr: e}; })
+{
+        return new node.InsAssign(key, e.expr);
+}
+ObjectIni = i:identifierName
+  / integer
+
 
 addOperator = "+" / "-"
 
@@ -90,6 +114,8 @@ integer "integer"
 IF = a:"if" !identifierPart {return a}
 THEN = a:"then" !identifierPart {return a}
 ELSE = a:"else" !identifierPart {return a}
+CLASS = a:"class" !identifierPart {return a}
+EXTENDS = a:"extends" !identifierPart {return a}
 
 identifier = !reserved i:identifierName { return i; }
 identifierName = head:identifierStart tail:identifierPart* {
@@ -132,6 +158,8 @@ reserved
   / SharedKeywords
   / CSKeywords
   / JSKeywords
+
+
 
 hexDigit = [0-9a-fA-F]
 

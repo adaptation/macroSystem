@@ -1,27 +1,27 @@
-PEG = require './node_modules/pegjs/lib/peg'
+PEG = require 'pegjs'
 ecg = require 'escodegen'
 fs = require 'fs'
 TR = require './trace.coffee'
-{Preprocessor} = require './preprocessor.js'
+{Preprocessor} = require './preprocessor.coffee'
 source = "./input.coffee"
 
 csExpression = fs.readFileSync source , "utf8"
 input = Preprocessor.processSync csExpression
 
-console.log input
+# console.log input
 
 parser = PEG.buildParser fs.readFileSync('scratch.pegjs').toString()
 
 ast = parser.parse input
 
-#console.log ast
+# console.log "\nAST:",ast.body[0].block[0].expr.body.block
 
 p = TR.trace ast
-#console.log p
+# console.log "\np:", p.body[0].block[0].expr.body.block[0]
 
 b = p.toESC()
 
-#console.log b.body[0].body[0].expression.body.body[0]
+# console.log "\nb:", b.body[0].body[2].expression.right.body.body[2].consequent.body
 
 func = {
   type: "FunctionExpression";
@@ -37,8 +37,53 @@ func = {
   expression: false;
 }
 
+cond = {
+  type: 'IfStatement',
+  test: {
+    type: 'AssignmentExpression',
+    operator: '=',
+    left: { type: 'Identifier', name: 'a' },
+    right: { type: 'Identifier', name: 'b' } },
+  consequent: {
+    type: 'BlockStatement',
+    body: [ { type: 'ExpressionStatement',
+    expression: { type: 'Identifier', name: 'c' }
+      }  ] },
+  alternate: null
+}
+
+
+call= {
+  type: "CallExpression";
+  callee:{
+    type: "MemberExpression";
+    object: {type:"Identifier",name:"A"};
+    property:{type:"Identifier",name:"a"}
+    computed:false
+  };
+  arguments: [  ];
+}
+
+member= {
+  type: "MemberExpression";
+  object: {
+    type: "CallExpression";
+    callee: {type:"Identifier",name:"test"};
+    arguments: [  ];
+  };
+  property:{type:"Identifier",name:"A"};
+  computed: false;
+}
+
+obj = {
+  type: "ObjectExpression";
+  properties: [  ];
+}
+
+
+
 a = ecg.generate b
-#console.log a
+console.log a
 
 #file = fs.openSync("./log.txt",'a')
 

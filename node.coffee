@@ -10,7 +10,13 @@ exports.Expr = class Expr
   constructor:(@expr)->
     @type = "ExpressionStatement"
   toString:()-> return @expr.toString()
-  toESC:()-> return {type:@type,expression:@expr.toESC()}
+  toESC:()-> return makeExpr @expr.toESC()
+
+makeExpr = (expr)->
+  return {
+    type:"ExpressionStatement",
+    expression:expr
+  }
 
 exports.Function = class Function
   constructor:(@args,@body)->
@@ -24,16 +30,19 @@ exports.Function = class Function
     if @args
       params = @args.map((x)-> return x.toESC())
     else
-      params = null
-    return {
+      params = []
+    return makeFunc null,params,@body.toESC(),false
+
+makeFunc = (id,params,body,ex)->
+  return {
       type: "FunctionExpression",
-      id: null,
+      id: id,
       params: params,
       defaults: [ ],
       rest: null,
-      body: @body.toESC(),
+      body: body,
       generator: true,
-      expression: false
+      expression: ex
     }
 
 exports.FourArthmeticOperation = class FourArthmeticOperation
@@ -79,8 +88,18 @@ exports.Block = class Block
     return "{" + @block.map((x)-> return x.toString()) + "}"
   toESC:()->
     block = @block.map((x)-> return x.toESC())
-    block = (setVar @env).concat block
-    return{type:@type, body: block}
+    dec = (setVar @env).concat(setExtends @env)
+    if dec.length > 0
+      declarations = makeVarDeclaration (dec)
+      # console.log "Decs:",declarations
+      block.unshift(declarations)
+    return makeBlock block
+
+makeBlock = (body)->
+  return {
+    type:"BlockStatement",
+    body:body
+  }
 
 makeId = (id)->
   return {type: "Identifier",name: id.toString()}
@@ -102,7 +121,7 @@ makeVarDeclaration = (vars)->
 setVar = (env)->
   if env.variable.length > 0
     vars = env.variable.map (x)-> return makeVarDeclarator x,null
-    return [ makeVarDeclaration vars ]
+    return vars
   else
     return []
 
@@ -112,12 +131,15 @@ exports.Assign = class Assign
   toString:()->
     return @left.toString() + "=" + @right.toString()
   toESC:()->
-    return {
-      type:@type,
-      operator:"=",
-      left:@left.toESC(),
-      right:@right.toESC()
-      }
+    return makeAssign @left.toESC(), @right.toESC()
+
+makeAssign = (left,right)->
+  return {
+    type:"AssignmentExpression",
+    operator:"=",
+    left:left,
+    right:right
+  }
 
 @Conditional = class Conditional
   constructor:(@cond,@body,@else)->
@@ -132,12 +154,15 @@ exports.Assign = class Assign
       alternate = @else.toESC()
     else
       alternate = null
-    return {
-      type:@type,
-      test:@cond.toESC(),
-      consequent:@body.toESC(),
-      alternate:alternate
-    }
+    return makeIf @cond.toESC(), @body.toESC(), alternate
+
+makeIf = (test,consequent,alter)->
+  return {
+    type:"IfStatement",
+    test:test,
+    consequent:consequent,
+    alternate:alter
+  }
 
 @Class = class Class
   constructor:(@name,@parent,@body)->
@@ -149,22 +174,20 @@ exports.Assign = class Assign
       p = ""
     "class "+@name.toString()+p+"\n"+@body.toString()
   toESC:()->
-    console.log "Class body",@body
-    r = {
-        type: "CallExpression";
-        callee:{
-            type: "FunctionExpression",
-            id: null,
-            params: [],
-            defaults: [ ],
-            rest: null,
-            body: @body.toESC(),
-            generator: true,
-            expression: false
-        },
-        arguments: [  ]
-    }
-    console.log @name
+    name = @env.className.toESC()
+    if @body.expr?
+      body = makeBlock [ @body.toESC() ]
+    else
+      body = @body.toESC()
+    args = []
+    if @parent?
+      parent = @parent.toESC()
+      if !@env.constructor
+        body.body.unshift (makeExpr (makeFunc name,[],(makeReturn ( makeCall (makeMember (makeMember (makeMember name,(makeId "__super__"),false),(makeId "constructor"),false),(makeId "apply"),false),[makeThis(),(makeId "arguments")])),false))
+      body.body.unshift (makeExpr makeCall( (makeId "__extends"), [ (name) ,(makeId "_super")] ))
+      args.push parent
+    body.body.push (makeReturn name)
+    r = makeCall (makeFunc null,[],body,false), args
     if @name?
       return {
         type:"AssignmentExpression",
@@ -175,19 +198,22 @@ exports.Assign = class Assign
     else
       return r
 
+makeCall = (callee,args)->
+  return {
+    type: "CallExpression",
+    callee:callee,
+    arguments:args
+  }
+
 @InsAssign = class InsAssign
   constructor:(@left,@right)->
     @type="InsAssign"
   toString:()->
     return @left.toString() + ":" + @right.toString()
   toESC:()->
-    console.log "class Name", @className
-    return {
-      type:"AssignmentExpression",
-      operator:"=",
-      left: makeMember(makeMember(@className.toESC(),makeId("prototype")), @left.toESC()),
-      right:@right.toESC()
-      }
+    return makeAssign makeMember(makeMember(@className.toESC(),makeId("prototype")), @left.toESC(),false), @right.toESC()
+
+
 
 makeObj = (properties)->
   return {
@@ -195,15 +221,84 @@ makeObj = (properties)->
     properties:properties
   }
 
-makeMember = (obj,prop)->
+makeMember = (obj,prop,cmp)->
   return {
     type: "MemberExpression",
     object:obj,
     property:prop,
-    computed:false
+    computed:cmp
   }
 
-setExtends = (ex)->
+makeReturn = (arg)->
+  return {
+    type:"ReturnStatement",
+    argument: arg
+  }
+
+makeForIn = (left,right,body)->
+  return {
+    type:"ForInStatement",
+    left:left,
+    right:right,
+    body:body,
+    each:false
+    }
+
+makeThis = ()->
+  return {
+    type:"ThisExpression"
+  }
+
+makeNew = (call,args)->
+  return {
+    type:"NewExpression",
+    callee:call,
+    arguments:args
+  }
+
+
+
+setExtends = (env)->
   extend = []
-  extend.push makeVarDeclarator("__hasProp",makeMember(makeObj([]), makeId("hasOwnProperty")))
-  return [ makeVarDeclaration extend ]
+  if env.extend
+    extend.push makeVarDeclarator "__hasProp", makeMember(makeObj([]), makeId("hasOwnProperty"),false)
+    ex =  makeVarDeclarator "__extends",
+      makeFunc(null,[(makeId "child"), (makeId "parent")],
+        (makeBlock [
+          makeForIn(
+            (makeVarDeclaration [ makeVarDeclarator("key",null) ]) ,
+            (makeId "parent"),
+            (makeIf (makeCall (makeMember (makeId "__hasProp"),(makeId "call" ),false), [(makeId "parent"), (makeId "key")] ),
+              makeExpr makeAssign (makeMember (makeId "child"),(makeId "key"),true ),
+                (makeMember (makeId "parent"),(makeId "key"),true ) ,
+              null)
+          ),
+          (makeExpr makeFunc(
+            (makeId "ctor"),
+            [],
+            (makeAssign (makeMember makeThis(),(makeId "constructor"),false),(makeId "child")),
+            true)),
+          (makeExpr makeAssign(
+            (makeMember (makeId "ctor"),(makeId "prototype")),
+            (makeMember (makeId "parent"),(makeId "prototype")))),
+          (makeExpr makeAssign(
+            (makeMember (makeId "child"),(makeId "prototype")),
+            (makeNew (makeId "ctor"),[]))),
+          (makeExpr makeAssign(
+            (makeMember (makeId "child"),(makeId "__super__")),
+            (makeMember (makeId "parent"),(makeId "prototype")))),
+          (makeReturn (makeId "child"))
+        ]),false)
+    extend.push ex
+    # console.log "Test:",test.init.body.body[1].expression.body
+    return extend
+  else
+    return extend
+
+@Constructor = class Constructor
+  constructor:(@body)->
+    @type = "Constructor"
+  toString:()->
+    "constructor:"+@body.toString()
+  toESC:()->
+    return (makeFunc @className.toESC(),[],@body.toESC(),true)

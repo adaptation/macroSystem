@@ -19,15 +19,20 @@ exports.trace = (Node,env=null)->
     when 'Class'
       if Node.name?
         addVariable(Node.name.toString(),env)
-        env.className = Node.name
+        name = Node.name
       else
-        env.className = new node.Identifier("_Class")
-      exports.trace Node.body,env
+        name = new node.Identifier("_Class")
+      top = getTopEnv(env)
+      newEnv = {variable:[],parent:env,className:name,constructor:false}
+      Node.env = newEnv
+      top.extend = (Node.parent?) or (top.extend)
+      # console.log "top:",getTopEnv env
+      exports.trace Node.body,newEnv
     when "Literal","Operator", "Indentifier"
       env
     when "BlockStatement"
       if env is null
-        newEnv = {variable:[],parent:null}
+        newEnv = {variable:[],parent:null,extend:false}
       else
         newEnv = {variable:[],parent:env}
       Node.env = traceBlock Node.block,newEnv
@@ -41,6 +46,11 @@ exports.trace = (Node,env=null)->
       exports.trace Node.right
       Node.className = env.parent.className
       env
+    when "Constructor"
+      exports.trace Node.body
+      Node.className = env.parent.className
+      env.parent.constructor = true
+      env
     else
       console.log "Trace error"
       env
@@ -53,3 +63,9 @@ traceBlock = (block,env)->
 addVariable = (v,env)->
   if !(_.find env.variable,(x)-> x is v)
     env.variable.push v
+
+getTopEnv = (env)->
+  if env.parent is null
+    env
+  else
+    getTopEnv env.parent

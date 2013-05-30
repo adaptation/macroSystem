@@ -17,10 +17,9 @@ ast = parser.parse input
 # console.log "\nAST:",ast.body[0].block[0].expr.body.block
 
 p = TR.trace ast
-# console.log "\np:", p.body[0].block[0].expr.body.block[0]
+# console.log "\np:", p.body[0].block[3].expr
 
 b = p.toESC()
-
 # console.log "\nb:", b.body[0].body[2].expression.right.body.body[2].consequent.body
 
 func = {
@@ -72,7 +71,7 @@ member= {
     arguments: [  ];
   };
   property:{type:"Identifier",name:"A"};
-  computed: false;
+  computed: true;
 }
 
 obj = {
@@ -80,6 +79,26 @@ obj = {
   properties: [  ];
 }
 
+forin = {
+  type: "ForInStatement";
+  left: {
+    type: "VariableDeclaration";
+    declarations: [
+      {
+        type: "VariableDeclarator";
+        id: { type: 'Identifier', name: 'key' },
+        init: { type: 'Identifier', name: 'test' },
+      }
+    ],
+    kind: "var",
+  },
+  right: { type: 'Identifier', name: 'parent' },
+  body:{
+    type: 'ExpressionStatement',
+    expression: { type: 'Identifier', name: 'c' }
+  },
+  each: false;
+}
 
 
 a = ecg.generate b

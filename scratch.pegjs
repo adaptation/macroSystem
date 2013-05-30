@@ -79,13 +79,19 @@ classBlock = s:classStatement ss:(_ TERMINATOR _ classStatement)* TERMINATOR?{
   return new node.Block([s].concat(ss.map(function(s){ return s[3]; })));
 }
 classStatement
-  = ex:(instanceAssignment / expr) {return new node.Expr(ex);}
+  = ex:(constructor / instanceAssignment / expr) {return new node.Expr(ex);}
   / conditional
 instanceAssignment = key:ObjectIni _ ":" _ e:
   ( TERMINDENT e:expr DEDENT { return {expr: e}; }
       / TERMINATOR? _ e:expr { return {expr: e}; })
 {
         return new node.InsAssign(key, e.expr);
+}
+constructor = CONSTRUCTOR _ ":" _ e:
+  ( TERMINDENT e:func DEDENT { return {expr: e}; }
+      / TERMINATOR? _ e:func { return {expr: e}; })
+{
+        return new node.Constructor(e.expr);
 }
 ObjectIni = i:identifierName
   / integer
@@ -116,6 +122,7 @@ THEN = a:"then" !identifierPart {return a}
 ELSE = a:"else" !identifierPart {return a}
 CLASS = a:"class" !identifierPart {return a}
 EXTENDS = a:"extends" !identifierPart {return a}
+CONSTRUCTOR = a:"constructor" !identifierPart {return a}
 
 identifier = !reserved i:identifierName { return i; }
 identifierName = head:identifierStart tail:identifierPart* {

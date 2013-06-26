@@ -1,16 +1,8 @@
-class A extends B
-	a:1
-	b:( c)->
-		c+1
-c = (a)->
-	d = 3 + 2
-	if a = 2
-		a+b
-
-b = ()->
-	1 + 2
-
-class
-	a:2
+class A
 	constructor:()->
-		2 + 3
+		a = 2
+	b:(c)->
+		if b = 0
+			b + c
+		else
+			b - c

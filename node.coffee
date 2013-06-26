@@ -186,7 +186,13 @@ makeIf = (test,consequent,alter)->
         body.body.unshift (makeExpr (makeFunc name,[],(makeReturn ( makeCall (makeMember (makeMember (makeMember name,(makeId "__super__"),false),(makeId "constructor"),false),(makeId "apply"),false),[makeThis(),(makeId "arguments")])),false))
       body.body.unshift (makeExpr makeCall( (makeId "__extends"), [ (name) ,(makeId "_super")] ))
       args.push parent
+    else
+      if !@env.constructor
+        body.body.unshift (makeExpr (makeAssign name,(makeFunc null,[],(makeBlock []),false)))
+
     body.body.push (makeReturn name)
+    v = makeVarDeclaration ([makeVarDeclarator name.name,null])
+    body.body.unshift (v)
     r = makeCall (makeFunc null,[],body,false), args
     if @name?
       return {
@@ -301,4 +307,4 @@ setExtends = (env)->
   toString:()->
     "constructor:"+@body.toString()
   toESC:()->
-    return (makeFunc @className.toESC(),[],@body.toESC(),true)
+    return (makeAssign @className.toESC(),@body.toESC())

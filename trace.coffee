@@ -13,9 +13,10 @@ exports.trace = (Node,env=null)->
     when 'BinaryExpression'
       env
     when 'IfStatement'
-      exports.trace Node.body
+      exports.trace Node.body,env
+      exports.trace Node.cond,env
       if Node.else
-        exports.trace Node.else
+        exports.trace Node.else,env
     when 'Class'
       if Node.name?
         addVariable(Node.name.toString(),env)

@@ -4,7 +4,7 @@ var us = require('underscore');
 
 }
 start
-  = program
+  =program
 
 program = leader:TERMINATOR? _ b:toplevelBlock {return new node.Program([b])}
 
@@ -19,14 +19,12 @@ block = s:statement ss:(_ TERMINATOR _ statement)* TERMINATOR? {
 }
 
 
-statement = ex:(assign /expr) {return new node.Expr(ex);}
+statement = ex:(assign / member / expr) {return new node.Expr(ex);}
   / conditional
 
 //expr = expressionworthy
 expr = ex:(func / class / additive) {return ex;}
 
-
-literal = integer
 
 whiteSpace = [\u0009\u000B\u000C\u0020\u00A0\uFEFF\u1680\u180E\u2000-\u200A\u202F\u205F\u3000]
   / "\r" / s:("\\" "\r"? "\n") { return s.join("");}
@@ -94,8 +92,25 @@ constructor = CONSTRUCTOR _ ":" _ e:
         return new node.Constructor(e.expr);
 }
 ObjectIni = i:identifierName
-  / integer
+  / Number
 
+
+argumentList = "(" _ a:argumentListContents? _ ")"{console.log("argList",a);return a}
+argumentListContents = e:argument es:(_ ("," / TERMINATOR) _ argument)* ("," / TERMINATOR)? {return [e].concat(es.map(function(e){return e[3];}));} /
+TERMINDENT a:argumentListContents DEDENT TERMINATOR? {return a;}
+argument = expr
+
+member = memberAccess
+memberAccess = e:(primary / NEW __ e:member args: argumentList {return new node.New(e,args);})
+  accesses:(argumentList memberAccessOps / memberAccessOps)+ {
+  console.log("memAcc e",e);
+  var acc = us.reduce(accesses,function(memo, a){ return memo.concat(a); }, []);
+  console.log("memAcc acc",acc);
+  return new node.Member(e,acc);
+  }
+memberAccessOps = TERMINATOR? _ "." TERMINATOR? _ e:memberNames {console.log(e) ;return [e]}
+// TERMINDENT "." _ e:memberNames memberAccessOps* DEDENT {return {op:[e]}} /
+memberNames = identifierName
 
 addOperator = "+" / "-"
 
@@ -113,6 +128,12 @@ primary
   = (literal / identifier)
   / "(" _ additive:additive _ ")" { return additive; }
 
+literal = Number / bool
+
+bool = TRUE {return new node.Bool(true)} / FALSE {return new node.Bool(false)}
+
+Number = integer
+
 integer "integer"
   = digits:[0-9]+ { return new node.Int(parseInt(digits.join(""), 10)); }
 
@@ -123,6 +144,11 @@ ELSE = a:"else" !identifierPart {return a}
 CLASS = a:"class" !identifierPart {return a}
 EXTENDS = a:"extends" !identifierPart {return a}
 CONSTRUCTOR = a:"constructor" !identifierPart {return a}
+NEW = a:"new" !identifierPart {return a}
+
+TRUE = a:"true" !identifierPart {return a}
+FALSE = a:"false" !identifierPart {return a}
+
 
 identifier = !reserved i:identifierName { return i; }
 identifierName = head:identifierStart tail:identifierPart* {

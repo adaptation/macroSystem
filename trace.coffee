@@ -29,7 +29,7 @@ exports.trace = (Node,env=null)->
       top.extend = (Node.parent?) or (top.extend)
       # console.log "top:",getTopEnv env
       exports.trace Node.body,newEnv
-    when "Literal","Operator", "Indentifier"
+    when "Literal","Operator", "Indentifier","Bool","Member"
       env
     when "BlockStatement"
       if env is null
@@ -53,6 +53,7 @@ exports.trace = (Node,env=null)->
       env.parent.constructor = true
       env
     else
+      console.log Node.type
       console.log "Trace error"
       env
 

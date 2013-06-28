@@ -1,4 +1,4 @@
-class A
+class A extends B
 	constructor:()->
 		a = 2
 	b:(c)->
@@ -6,3 +6,7 @@ class A
 			b + c
 		else
 			b - c
+
+true
+false
+a.b.c.d

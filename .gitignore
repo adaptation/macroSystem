@@ -16,3 +16,4 @@ pegjs/
 underscore/
 escodegen/
 .bin/
+lodash/

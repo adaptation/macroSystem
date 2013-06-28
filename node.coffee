@@ -1,3 +1,5 @@
+_ = require "lodash"
+
 exports.Program = class Program
   constructor:(@body)->
     @type = "Program"
@@ -65,6 +67,8 @@ exports.Literal = class Literal
 
 exports.Int = class Int extends Literal
 
+exports.Bool = class Bool extends Literal
+
 exports.Identifier = class Identifier
   constructor:(@identifier)->
     @type = "Identifier"
@@ -91,7 +95,6 @@ exports.Block = class Block
     dec = (setVar @env).concat(setExtends @env)
     if dec.length > 0
       declarations = makeVarDeclaration (dec)
-      # console.log "Decs:",declarations
       block.unshift(declarations)
     return makeBlock block
 
@@ -296,7 +299,6 @@ setExtends = (env)->
           (makeReturn (makeId "child"))
         ]),false)
     extend.push ex
-    # console.log "Test:",test.init.body.body[1].expression.body
     return extend
   else
     return extend
@@ -308,3 +310,36 @@ setExtends = (env)->
     "constructor:"+@body.toString()
   toESC:()->
     return (makeAssign @className.toESC(),@body.toESC())
+
+@Member = class Member
+  constructor:(@obj,@prop)->
+    @type = "Member"
+  toString:()->
+    @obj.toString() + @prop.map((x)->x.toString())
+  toESC:()->
+    p = @prop.map((x)->x.toESC())
+    property = p.pop()
+    console.log "obj", @obj
+    console.log "p ", p
+    console.log "property ",property
+
+    object = makeMemberObj @obj.toESC(),p
+
+
+
+    return (makeMember object, property, false)
+
+makeMemberObj = (obj, prop)->
+  toObj = (obj,prop)->
+    makeMember(obj,prop,false)
+  object = _.foldl(prop,toObj,obj)
+  console.log "Object",object
+  return object
+
+@New = class New
+  constructor:(@obj,@args)->
+    @type = "New"
+  toString:->
+    "new "+@obj.toString()+"( "+@args.map((x)->x.toString())+" )"
+  toESC:->
+    return (makeNew @obj.toESC(),@args.map((x)->x.toESC()))

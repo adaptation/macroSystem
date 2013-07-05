@@ -53,11 +53,14 @@ exports.FourArthmeticOperation = class FourArthmeticOperation
   toString:()->
     return "("+@left.toString()+" "+@op.toString()+" "+@right.toString()+")"
   toESC:()->
-    return {type: @type,
-    operator: @op.toESC(),
-    left:@left.toESC(),
-    right:@right.toESC()
-    }
+    return makeBinaryOp @left.toESC(), @op.toESC(), @right.toESC()
+
+makeBinaryOp = (left,op,right)->
+  return {type: 'BinaryExpression',
+  operator: op,
+  left:left,
+  right:right
+  }
 
 exports.Literal = class Literal
   constructor:(@literal)->
@@ -68,6 +71,8 @@ exports.Literal = class Literal
 exports.Int = class Int extends Literal
 
 exports.Bool = class Bool extends Literal
+
+@String = class String extends Literal
 
 exports.Identifier = class Identifier
   constructor:(@identifier)->
@@ -319,21 +324,13 @@ setExtends = (env)->
   toESC:()->
     p = @prop.map((x)->x.toESC())
     property = p.pop()
-    console.log "obj", @obj
-    console.log "p ", p
-    console.log "property ",property
-
     object = makeMemberObj @obj.toESC(),p
-
-
-
     return (makeMember object, property, false)
 
 makeMemberObj = (obj, prop)->
   toObj = (obj,prop)->
     makeMember(obj,prop,false)
   object = _.foldl(prop,toObj,obj)
-  console.log "Object",object
   return object
 
 @New = class New
@@ -342,4 +339,5 @@ makeMemberObj = (obj, prop)->
   toString:->
     "new "+@obj.toString()+"( "+@args.map((x)->x.toString())+" )"
   toESC:->
-    return (makeNew @obj.toESC(),@args.map((x)->x.toESC()))
+    console.log "New Obj",@obj
+    return (makeNew @obj.obj.toESC(),@args.map((x)->x.toESC()))

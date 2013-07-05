@@ -2,6 +2,21 @@
 var node= require('../../../node.js');
 var us = require('underscore');
 
+var stripLeadingWhitespace = function(str){
+    str = str.replace(/\s+$/, '');
+    var attempt, match, matchStr = str, indent = null;
+    while(match = /\n+([^\n\S]*)/.exec(matchStr)) {
+      attempt = match[1];
+      matchStr = matchStr.slice(match.index + match[0].length);
+      if (indent == null || 0 < attempt.length && attempt.length < indent.length)
+        indent = attempt;
+    }
+    if(indent) str = str.replace(new RegExp('\\n' + indent, 'g'), '\n');
+    str = str.replace(/^\n/, '');
+    return str;
+  }
+
+
 }
 start
   =program
@@ -19,11 +34,24 @@ block = s:statement ss:(_ TERMINATOR _ statement)* TERMINATOR? {
 }
 
 
-statement = ex:(assign / member / expr) {return new node.Expr(ex);}
+statement = ex:(assign / memberAccess / expr ) {return new node.Expr(ex);}
   / conditional
 
+secondaryStatement = secondaryExpression
+
+secondaryExpression = expr / assign
+
+expression = expr / seqExpression
+
+seqExpression = left:secondaryStatement right:(_ ";" TERMINATOR? _ expression)?{
+  if(!right){
+    return left;
+  }
+  return
+}
+
 //expr = expressionworthy
-expr = ex:(func / class / additive) {return ex;}
+expr = ex:(func / class / new / additive) {return ex;}
 
 
 whiteSpace = [\u0009\u000B\u000C\u0020\u00A0\uFEFF\u1680\u180E\u2000-\u200A\u202F\u205F\u3000]
@@ -55,15 +83,16 @@ assign = left:identifier _ "=" !"=" right:(TERMINDENT e:expr DEDENT { return e; 
        return new node.Assign(left,right);
       }
 
+
 conditional = IF _ cond:assign body:conditionalBody elseClause:elseClause? {
   return new node.Conditional(cond, body.block, elseClause);
 }
-
 conditionalBody = _ TERMINDENT b:block DEDENT TERM{ return {block: b}; }
     / TERMINATOR? _ THEN _ s:statement { return {block: s}; }
     / _ THEN { return {block: null}; }
 elseClause = _ TERMINATOR? _ ELSE b:elseBody { return b; }
 elseBody = funcBody
+
 
 class = CLASS name:(_ identifier)? parent:(_ EXTENDS _ extendee)? body:classBody{
   name = name ? name[1] : null //new node.Identifier("_Class");
@@ -95,27 +124,38 @@ ObjectIni = i:identifierName
   / Number
 
 
-argumentList = "(" _ a:argumentListContents? _ ")"{console.log("argList",a);return a}
+argumentList = "(" _ a:argumentListContents? _ ")"{console.log("argList",a);return a || []}
 argumentListContents = e:argument es:(_ ("," / TERMINATOR) _ argument)* ("," / TERMINATOR)? {return [e].concat(es.map(function(e){return e[3];}));} /
 TERMINDENT a:argumentListContents DEDENT TERMINATOR? {return a;}
 argument = expr
 
-member = memberAccess
-memberAccess = e:(primary / NEW __ e:member args: argumentList {return new node.New(e,args);})
+member = e:(primary / NEW __ e:member args:argumentList {console.log("New ",e,args);return new node.New(e,args);}) accesses:(memberAccessOps)* {
+  console.log("mem e",e);
+  console.log("mem pre acc",accesses);
+  var acc = us.reduce(accesses,function(memo, a){ return memo.concat(a); }, []);
+  console.log("mem acc",acc);
+  return new node.Member(e,acc);
+  } / NEW __ e:member args:argumentList{console.log("after New ",e,args);return new node.New(e,args);}
+memberAccess = e:(primary / NEW __ e:member args:argumentList {console.log("AccNew ",e,args);return new node.New(e,args);})
   accesses:(argumentList memberAccessOps / memberAccessOps)+ {
   console.log("memAcc e",e);
   var acc = us.reduce(accesses,function(memo, a){ return memo.concat(a); }, []);
   console.log("memAcc acc",acc);
   return new node.Member(e,acc);
   }
-memberAccessOps = TERMINATOR? _ "." TERMINATOR? _ e:memberNames {console.log(e) ;return [e]}
+memberAccessOps = TERMINATOR? _ "." TERMINATOR? _ e:memberNames {return [e]}
 // TERMINDENT "." _ e:memberNames memberAccessOps* DEDENT {return {op:[e]}} /
 memberNames = identifierName
+
+new = NEW __ e:member args:argumentList {console.log("New ",e,args);return new node.New(e,args);} / NEW __ e:(expr / new / leftHandSideExpression){return new node.New(e,[])}
+
+leftHandSideExpression = new
+
 
 addOperator = "+" / "-"
 
 additive
-  = left:multiplicative _ op:addOperator _ right:additive { return new node.FourArthmeticOperation(left,new node.Operator(op),right); }
+  = left:multiplicative _ op:addOperator _ right:additive {return new node.FourArthmeticOperation(left,new node.Operator(op),right); }
   / multiplicative
 
 multiOperator = "*"/ "/"
@@ -125,17 +165,44 @@ multiplicative
   / primary
 
 primary
-  = (literal / identifier)
-  / "(" _ additive:additive _ ")" { return additive; }
+  = literal / identifier
 
-literal = Number / bool
+literal = Number / bool / string
+
+string = "\"\"\"" d:(stringData / "'" / ("\"" "\""? !"\""))+ "\"\"\"" {
+      return new node.String(stripLeadingWhitespace(d.join('')));
+    }
+  / "'''" d:(stringData / "\"" / "#" / ("'" "'"? !"'"))+ "'''" {
+      return new node.String(stripLeadingWhitespace(d.join('')));
+    }
+  / "\"" d:(stringData / "'")* "\"" { return new node.String(d.join('')); }
+  / "'" d:(stringData / "\"" / "#")* "'" { return new node.String(d.join('')); }
+stringData
+    = [^"'\\#]
+    / UnicodeEscapeSequence
+    / "\\x" h:(hexDigit hexDigit) { return String.fromCharCode(parseInt(h, 16)); }
+    / "\\0" !decimalDigit { return '\0'; }
+    / "\\0" &decimalDigit { throw new SyntaxError(['string data'], 'octal escape sequence', offset(), line(), column()); }
+    / "\\b" { return '\b'; }
+    / "\\t" { return '\t'; }
+    / "\\n" { return '\n'; }
+    / "\\v" { return '\v'; }
+    / "\\f" { return '\f'; }
+    / "\\r" { return '\r'; }
+    / "\\" c:. { return c; }
+    / c:"#" !"{" { return c; }
 
 bool = TRUE {return new node.Bool(true)} / FALSE {return new node.Bool(false)}
 
 Number = integer
 
 integer "integer"
-  = digits:[0-9]+ { return new node.Int(parseInt(digits.join(""), 10)); }
+  = "0" {return new node.Int(0)}
+  / head:[1-9] digits:decimalDigit* {return new node.Int(parseInt(head + digits.join(""), 10)); }
+
+decimalDigit = [0-9]
+hexDigit = [0-9a-fA-F]
+
 
 //keyword
 IF = a:"if" !identifierPart {return a}
@@ -148,6 +215,9 @@ NEW = a:"new" !identifierPart {return a}
 
 TRUE = a:"true" !identifierPart {return a}
 FALSE = a:"false" !identifierPart {return a}
+
+CompoundAssignmentOperators = a:("&&" / "||" / [?*/%] / "+" !"+" / "-" !"-") !identifierPart {return a}
+binaryOperator = (CompoundAssignmentOperators !"=") / "<=" / ">=" / "<" / ">" / "==" / "!="
 
 
 identifier = !reserved i:identifierName { return i; }
@@ -194,7 +264,7 @@ reserved
 
 
 
-hexDigit = [0-9a-fA-F]
+
 
 // unicode
 UnicodeEscapeSequence = "\\u" h0:hexDigit h1:hexDigit h2:hexDigit h3:hexDigit { return String.fromCharCode(parseInt(h0 + h1 + h2 + h3, 16)); }

@@ -35,9 +35,9 @@ block = s:statement ss:(_ TERMINATOR _ statement)* TERMINATOR? {
 
 
 statement = ex:(assign / memberAccess / expr ) {return new node.Expr(ex);}
-  / conditional
+  / conditional /return
 
-secondaryStatement = secondaryExpression
+secondaryStatement = secondaryExpression / return
 
 secondaryExpression = expr / assign
 
@@ -124,32 +124,29 @@ ObjectIni = i:identifierName
   / Number
 
 
-argumentList = "(" _ a:argumentListContents? _ ")"{console.log("argList",a);return a || []}
+argumentList = "(" _ a:argumentListContents? _ ")"{return a || []}
 argumentListContents = e:argument es:(_ ("," / TERMINATOR) _ argument)* ("," / TERMINATOR)? {return [e].concat(es.map(function(e){return e[3];}));} /
 TERMINDENT a:argumentListContents DEDENT TERMINATOR? {return a;}
 argument = expr
 
-member = e:(primary / NEW __ e:member args:argumentList {console.log("New ",e,args);return new node.New(e,args);}) accesses:(memberAccessOps)* {
-  console.log("mem e",e);
-  console.log("mem pre acc",accesses);
+member = e:(primary / NEW __ e:member args:argumentList {return new node.New(e,args);}) accesses:(memberAccessOps)* {
   var acc = us.reduce(accesses,function(memo, a){ return memo.concat(a); }, []);
-  console.log("mem acc",acc);
   return new node.Member(e,acc);
-  } / NEW __ e:member args:argumentList{console.log("after New ",e,args);return new node.New(e,args);}
-memberAccess = e:(primary / NEW __ e:member args:argumentList {console.log("AccNew ",e,args);return new node.New(e,args);})
+  } / NEW __ e:member args:argumentList{return new node.New(e,args);}
+memberAccess = e:(primary / NEW __ e:member args:argumentList {return new node.New(e,args);})
   accesses:(argumentList memberAccessOps / memberAccessOps)+ {
-  console.log("memAcc e",e);
   var acc = us.reduce(accesses,function(memo, a){ return memo.concat(a); }, []);
-  console.log("memAcc acc",acc);
   return new node.Member(e,acc);
   }
 memberAccessOps = TERMINATOR? _ "." TERMINATOR? _ e:memberNames {return [e]}
 // TERMINDENT "." _ e:memberNames memberAccessOps* DEDENT {return {op:[e]}} /
 memberNames = identifierName
 
-new = NEW __ e:member args:argumentList {console.log("New ",e,args);return new node.New(e,args);} / NEW __ e:(expr / new / leftHandSideExpression){return new node.New(e,[])}
+new = NEW __ e:member args:argumentList {return new node.New(e,args);} / NEW __ e:(expr / new / leftHandSideExpression){return new node.New(e,[])}
 
 leftHandSideExpression = new
+
+return = RETURN _ e:secondaryExpression? {return new node.Return(e || null);}
 
 
 addOperator = "+" / "-"
@@ -212,6 +209,7 @@ CLASS = a:"class" !identifierPart {return a}
 EXTENDS = a:"extends" !identifierPart {return a}
 CONSTRUCTOR = a:"constructor" !identifierPart {return a}
 NEW = a:"new" !identifierPart {return a}
+RETURN = a:"return" !identifierPart {return a}
 
 TRUE = a:"true" !identifierPart {return a}
 FALSE = a:"false" !identifierPart {return a}

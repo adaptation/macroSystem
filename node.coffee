@@ -339,5 +339,16 @@ makeMemberObj = (obj, prop)->
   toString:->
     "new "+@obj.toString()+"( "+@args.map((x)->x.toString())+" )"
   toESC:->
-    console.log "New Obj",@obj
     return (makeNew @obj.obj.toESC(),@args.map((x)->x.toESC()))
+
+@Return = class Return
+  constructor:(@expr)->
+    @type = "Return"
+  toString:()->
+    "return "+expr.toString()
+  toESC:()->
+    if @expr
+      expr = @expr.toESC()
+    else
+      expr = @expr
+    return (makeReturn expr)

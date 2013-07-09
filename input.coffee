@@ -15,3 +15,4 @@ new A()
 if c = 2222
 	"aaaaa
 	eeeaaaaaa"
+return

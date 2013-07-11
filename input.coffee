@@ -1,18 +1,32 @@
+a.b = 1
+
+class B
+	a:1
+
 class A extends B
-	constructor:()->
-		a = 3
+
 	b:(c)->
 		if b = 0
-			b + c
+			return b + c
 		else
-			b - c
+			return b - c
+	if a = 1
+		a
+	constructor:(a)->
+		this.a = a
+
+class C extends A
+	a : 2
+
+class D
+	constructor:(a)->
+		this.a = a
 
 true
 false
-a.b.c.d
-new A()
+new A().a.c.b
 
 if c = 2222
 	"aaaaa
 	eeeaaaaaa"
-return
+this.c

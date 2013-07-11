@@ -34,7 +34,7 @@ block = s:statement ss:(_ TERMINATOR _ statement)* TERMINATOR? {
 }
 
 
-statement = ex:(assign / memberAccess / expr ) {return new node.Expr(ex);}
+statement = ex:(assign / member / expr ) {return new node.Expr(ex);}
   / conditional /return
 
 secondaryStatement = secondaryExpression / return
@@ -79,7 +79,7 @@ return new node.Function(params[2],body);
 }
 
 
-assign = left:identifier _ "=" !"=" right:(TERMINDENT e:expr DEDENT { return e; } / TERMINATOR? _ e:expr   { return e; }){
+assign = left:leftHandSideExpression _ "=" !"=" right:(TERMINDENT e:(memberAccess / expr) DEDENT { return e; } / TERMINATOR? _ e:expr   { return e; }){
        return new node.Assign(left,right);
       }
 
@@ -101,12 +101,12 @@ class = CLASS name:(_ identifier)? parent:(_ EXTENDS _ extendee)? body:classBody
 }
 extendee = identifier
 classBody = _ TERMINDENT b:classBlock DEDENT TERM{ return b; }
-    / _ THEN _ s:classStatement { return s; }
+//    / _ THEN _ s:classStatement { return s; }
 classBlock = s:classStatement ss:(_ TERMINATOR _ classStatement)* TERMINATOR?{
   return new node.Block([s].concat(ss.map(function(s){ return s[3]; })));
 }
 classStatement
-  = ex:(constructor / instanceAssignment / expr) {return new node.Expr(ex);}
+  = constructor / ex:(instanceAssignment / expr) {return new node.Expr(ex);}
   / conditional
 instanceAssignment = key:ObjectIni _ ":" _ e:
   ( TERMINDENT e:expr DEDENT { return {expr: e}; }
@@ -144,7 +144,7 @@ memberNames = identifierName
 
 new = NEW __ e:member args:argumentList {return new node.New(e,args);} / NEW __ e:(expr / new / leftHandSideExpression){return new node.New(e,[])}
 
-leftHandSideExpression = new
+leftHandSideExpression = new / member
 
 return = RETURN _ e:secondaryExpression? {return new node.Return(e || null);}
 
@@ -162,7 +162,7 @@ multiplicative
   / primary
 
 primary
-  = literal / identifier
+  = literal / identifier / r:THIS {return new node.This;};
 
 literal = Number / bool / string
 
@@ -210,6 +210,7 @@ EXTENDS = a:"extends" !identifierPart {return a}
 CONSTRUCTOR = a:"constructor" !identifierPart {return a}
 NEW = a:"new" !identifierPart {return a}
 RETURN = a:"return" !identifierPart {return a}
+THIS = a:"this" !identifierPart {return a}
 
 TRUE = a:"true" !identifierPart {return a}
 FALSE = a:"false" !identifierPart {return a}

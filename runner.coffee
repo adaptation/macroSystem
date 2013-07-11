@@ -12,32 +12,13 @@ input = Preprocessor.processSync csExpression
 parser = PEG.buildParser fs.readFileSync('scratch.pegjs').toString()
 
 ast = parser.parse input
-# console.log "\nAST:",ast.body[0].block[0] #.body[0].block[0].expr.body.block
+# console.log "\nAST:",ast#.body[0].block[0] #.body[0].block[0].expr.body.block
 
 p = TR.trace ast
-# console.log "\np:", p.body[0].block[4].expr
+# console.log "\np:", p.body[0].block[0].expr.body
 
 b = p.toESC()
-# console.log "\nb:", b.body[0].body[5].expression#.right.callee.body.body[1].expression.left.property #.body[0].body[2].expression.right.body.body[2].consequent.body
-
-func = {
-  type: "FunctionExpression";
-  id: {type:"Identifier",name:"test"};
-  params: [{type:"Identifier",name:"a"} ];
-  defaults: [ ];
-  rest: null;
-  body: {
-    type: 'BlockStatement',
-    body: []
-  };
-  generator: true;
-  expression: false;
-}
-
-expr = {
-  type:"ExpressionStatement",
-  expression:func
-}
+# console.log "\nb:", b.body[0].body[1]#.expression#.right.callee.body.body[1].expression.left.property #.body[0].body[2].expression.right.body.body[2].consequent.body
 
 cond = {
   type: 'IfStatement',
@@ -53,6 +34,27 @@ cond = {
       }  ] },
   alternate: null
 }
+
+func = {
+  type: "FunctionExpression";
+  id: {type:"Identifier",name:"test"};
+  params: [{type:"Identifier",name:"a"} ];
+  defaults: [ ];
+  rest: null;
+  body: {
+    type: 'BlockStatement',
+    body: [cond]
+  };
+  generator: false;
+  expression: false;
+}
+
+expr = {
+  type:"ExpressionStatement",
+  expression:func
+}
+
+
 
 
 call= {

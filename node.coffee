@@ -43,7 +43,7 @@ makeFunc = (id,params,body,ex)->
       defaults: [ ],
       rest: null,
       body: body,
-      generator: true,
+      generator: false,
       expression: ex
     }
 
@@ -177,31 +177,34 @@ makeIf = (test,consequent,alter)->
     @type = 'Class'
   toString:()->
     if @parent
-      p = "extends "+@parent.toString()
+      p = " extends "+@parent.toString()
     else
       p = ""
     "class "+@name.toString()+p+"\n"+@body.toString()
   toESC:()->
     name = @env.className.toESC()
-    if @body.expr?
-      body = makeBlock [ @body.toESC() ]
-    else
-      body = @body.toESC()
     args = []
+    _super = []
+    @const = (_.find @body.block,(st)-> return (st.type is "Constructor") )
+    @body.block = _.reject @body.block,(st)-> return (st.type is "Constructor")
+    body = @body.toESC()
     if @parent?
       parent = @parent.toESC()
-      if !@env.constructor
-        body.body.unshift (makeExpr (makeFunc name,[],(makeReturn ( makeCall (makeMember (makeMember (makeMember name,(makeId "__super__"),false),(makeId "constructor"),false),(makeId "apply"),false),[makeThis(),(makeId "arguments")])),false))
+      _super.push (makeId "_super")
       body.body.unshift (makeExpr makeCall( (makeId "__extends"), [ (name) ,(makeId "_super")] ))
+      if !@const
+        body.body.unshift (makeExpr (makeAssign name,(makeFunc null,[],makeBlock [(makeReturn ( makeCall (makeMember (makeMember (makeMember name,(makeId "__super__"),false),(makeId "constructor"),false),(makeId "apply"),false),[makeThis(),(makeId "arguments")]))],false)))
+      else
+        body.body.unshift @const.toESC()
       args.push parent
     else
-      if !@env.constructor
+      if !@const
         body.body.unshift (makeExpr (makeAssign name,(makeFunc null,[],(makeBlock []),false)))
 
     body.body.push (makeReturn name)
     v = makeVarDeclaration ([makeVarDeclarator name.name,null])
     body.body.unshift (v)
-    r = makeCall (makeFunc null,[],body,false), args
+    r = makeCall (makeFunc null,_super,body,false), args
     if @name?
       return {
         type:"AssignmentExpression",
@@ -211,6 +214,7 @@ makeIf = (test,consequent,alter)->
       }
     else
       return r
+
 
 makeCall = (callee,args)->
   return {
@@ -287,11 +291,10 @@ setExtends = (env)->
                 (makeMember (makeId "parent"),(makeId "key"),true ) ,
               null)
           ),
-          (makeExpr makeFunc(
-            (makeId "ctor"),
-            [],
-            (makeAssign (makeMember makeThis(),(makeId "constructor"),false),(makeId "child")),
-            true)),
+          (makeExpr (makeAssign (makeId "ctor"),makeFunc(
+            null,[],
+            (makeBlock [makeExpr (makeAssign (makeMember makeThis(),(makeId "constructor"),false),(makeId "child"))]),
+            false))),
           (makeExpr makeAssign(
             (makeMember (makeId "ctor"),(makeId "prototype")),
             (makeMember (makeId "parent"),(makeId "prototype")))),
@@ -314,18 +317,21 @@ setExtends = (env)->
   toString:()->
     "constructor:"+@body.toString()
   toESC:()->
-    return (makeAssign @className.toESC(),@body.toESC())
+    return makeExpr (makeAssign @className.toESC(),@body.toESC())
 
 @Member = class Member
   constructor:(@obj,@prop)->
     @type = "Member"
   toString:()->
-    @obj.toString() + @prop.map((x)->x.toString())
+    @obj.toString() + "." + @prop.map((x)->x.toString())
   toESC:()->
-    p = @prop.map((x)->x.toESC())
-    property = p.pop()
-    object = makeMemberObj @obj.toESC(),p
-    return (makeMember object, property, false)
+    if @prop.length isnt 0
+      p = @prop.map((x)->x.toESC())
+      property = p.pop()
+      object = makeMemberObj @obj.toESC(),p
+      return (makeMember object, property, false)
+    else
+      return @obj.toESC()
 
 makeMemberObj = (obj, prop)->
   toObj = (obj,prop)->
@@ -352,3 +358,11 @@ makeMemberObj = (obj, prop)->
     else
       expr = @expr
     return (makeReturn expr)
+
+@This = class This
+  constructor:()->
+    @type = "This"
+  toString:()->
+    "this"
+  toESC:()->
+    return (makeThis() )

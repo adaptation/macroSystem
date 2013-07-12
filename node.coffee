@@ -55,6 +55,15 @@ exports.FourArthmeticOperation = class FourArthmeticOperation
   toESC:()->
     return makeBinaryOp @left.toESC(), @op.toESC(), @right.toESC()
 
+@BinaryOperation = class BinaryOperation
+  constructor:(@left,@op,@right)->
+    @type = "BinaryOperation"
+  toString:()->
+    return @left.toString() + @op + @right.toString()
+  toESC:()->
+    return makeBinaryOp @left.toESC(),@op,@right.toESC()
+
+
 makeBinaryOp = (left,op,right)->
   return {type: 'BinaryExpression',
   operator: op,

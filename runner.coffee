@@ -12,10 +12,13 @@ input = Preprocessor.processSync csExpression
 parser = PEG.buildParser fs.readFileSync('scratch.pegjs').toString()
 
 ast = parser.parse input
-# console.log "\nAST:",ast#.body[0].block[0] #.body[0].block[0].expr.body.block
+console.log "\nAST:",ast#.body[0].block[0] #.body[0].block[0].expr.body.block
+
+# test = ecg.generate (ast.toESC())
+# console.log test
 
 p = TR.trace ast
-# console.log "\np:", p.body[0].block[0].expr.body
+# console.log "\np:", p#.body[0].block[0].expr.body
 
 b = p.toESC()
 # console.log "\nb:", b.body[0].body[1]#.expression#.right.callee.body.body[1].expression.left.property #.body[0].body[2].expression.right.body.body[2].consequent.body
@@ -54,7 +57,39 @@ expr = {
   expression:func
 }
 
+binary = {
+  type: 'BinaryExpression',
+  operator: "<",
+  left:{
+    type: 'BinaryExpression',
+    operator: ">",
+    left:{type:'Literal',value:1},
+    right:{type:'Literal',value:2}
+  },
+  right:{
+    type: 'BinaryExpression',
+    operator: "+",
+    left:{type:'Literal',value:3},
+    right:{type:'Literal',value:4}
+  }
+}
 
+logical = {
+  type:"LogicalExpression",
+  operator:"||",
+  left:{
+    type: 'BinaryExpression',
+    operator: ">",
+    left:{type:'Literal',value:1},
+    right:{type:'Literal',value:2}
+  },
+  right:{
+    type: 'LogicalExpression',
+    operator: "&&",
+    left:{type:'Literal',value:3},
+    right:{type:'Literal',value:4}
+  }
+}
 
 
 call= {
@@ -198,7 +233,7 @@ arguments:[]}}}
 
 
 
-a = ecg.generate b
+a = ecg.generate logical
 console.log a
 
 #file = fs.openSync("./log.txt",'a')

@@ -17,6 +17,86 @@ var stripLeadingWhitespace = function(str){
   }
 
 
+var precedence =
+  [ ['||'],
+  ['&&'],
+  ['===','!=='],
+  ['<=','>=','<','>'],
+  ['+','-'],
+  ['*','/','%']
+  ];
+var chainableComparisonOps = ['<=', '>=', '<', '>', '===', '!=='];
+var precedenceTable = (function(){
+  var table = {}, ops, op;
+  for(var level = 0, l = precedence.length; level < l; ++level) {
+    ops = precedence[level];
+    for(var o = 0, k = ops.length; o < k; ++o) {
+      op = ops[o];
+      table[op] = level;
+    }
+  }
+  return table;
+  }());
+var foldBinaryExpr = function(parts,ignoreChains){
+  var stack, chainStack, nextPrec, nextOp, className, ctor, prec, rightOperand, leftOperand, operator, i, expr;
+  if(parts.length < 3) return parts[0];
+  stack = [].slice.call(parts, 0, 3);
+  parts = [].slice.call(parts, 3);
+  while(parts.length > 0) {
+    nextOp = parts[0];
+
+    if(!ignoreChains && stack.length > 2) {
+      operator = stack[stack.length - 2];
+      // reduce chained comparisons
+      if(chainableComparisonOps.indexOf(operator) >= 0 && chainableComparisonOps.indexOf(nextOp) >= 0) {
+        chainStack = stack.slice(-3);
+        stack = stack.slice(0, stack.length - 3);
+        do {
+          operator = nextOp;
+          chainStack.push(parts.shift(), parts.shift());
+          nextOp = parts[0];
+          if(nextOp) {
+            nextPrec = precedenceTable[nextOp];
+            prec = precedenceTable[operator];
+          }
+        // TODO: I would love `a < b is c < d` to instead denote `(a < b) is (c < d)`
+        } while(nextOp != null && (nextPrec > prec || chainableComparisonOps.indexOf(nextOp) >= 0));
+        stack.push(new node.Bi(foldBinaryExpr(chainStack, true)));
+        continue;
+      }
+    }
+
+    // reduce
+    while(
+      stack.length > 2 &&
+      (
+        operator = stack[stack.length - 2],
+        prec = precedenceTable[operator],
+        nextPrec = precedenceTable[nextOp],
+        nextPrec < prec ||
+        chainableComparisonOps.indexOf(operator) >= 0 && chainableComparisonOps.indexOf(nextOp) >= 0 ||
+        nextPrec == prec && associativities[operator] === LEFT_ASSOCIATIVE
+      )
+    ) {
+      rightOperand = stack.pop();
+      stack.pop(); // operator
+      leftOperand = stack.pop();
+      stack.push(new constructorLookup[operator](leftOperand, rightOperand));
+    }
+    // shift
+    stack.push(parts.shift()); // operator
+    stack.push(parts.shift()); // next operand
+  }
+
+  // reduce the rest of the stack
+  expr = stack.pop();
+  while(stack.length > 0)
+    expr = new constructorLookup[stack.pop()](stack.pop(), expr);
+
+  return expr;
+  return 0
+};
+
 }
 start
   =program
@@ -35,7 +115,7 @@ block = s:statement ss:(_ TERMINATOR _ statement)* TERMINATOR? {
 
 
 statement = ex:(assign / member / expr ) {return new node.Expr(ex);}
-  / conditional /return
+  / conditional / return
 
 secondaryStatement = secondaryExpression / return
 
@@ -161,6 +241,11 @@ multiplicative
   = left:primary _ op:multiOperator _ right:multiplicative { return new node.FourArthmeticOperation(left,new node.Operator(op),right); }
   / primary
 
+binaryExprssion = left:leftHandSideExpression rights:(_ o:binaryOperator TERMINATOR? _ e:(expr / leftHandSideExpression){return [o,e]})* {
+  return foldBunaryExpr([left].concat(rights));
+}
+CompoundAssignmentOperators = a:("&&" / "||" / [?*/%] / "+" !"+" / "-" !"-") !identifierPart {return a}
+binaryOperator = (CompoundAssignmentOperators !"=") / "<=" / ">=" / "<" / ">" / "==" {return "===";} / "!=" {return "!==";}
 primary
   = literal / identifier / r:THIS {return new node.This;};
 
@@ -221,9 +306,6 @@ THIS = a:"this" !identifierPart {return a}
 
 TRUE = a:"true" !identifierPart {return a}
 FALSE = a:"false" !identifierPart {return a}
-
-CompoundAssignmentOperators = a:("&&" / "||" / [?*/%] / "+" !"+" / "-" !"-") !identifierPart {return a}
-binaryOperator = (CompoundAssignmentOperators !"=") / "<=" / ">=" / "<" / ">" / "==" / "!="
 
 
 identifier = !reserved i:identifierName { return i; }

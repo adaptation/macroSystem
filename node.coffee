@@ -366,3 +366,18 @@ makeMemberObj = (obj, prop)->
     "this"
   toESC:()->
     return (makeThis() )
+
+@Array = class Array
+  constructor:(@members)->
+    @type = "Array"
+  toString:()->
+    return "[" + @members.map((x)->x.toString()) + "]"
+  toESC:()->
+    return makeArray @members.map((x)->x.toESC())
+
+makeArray = (members)->
+  return {
+    type:"ArrayExpression",
+    elements:members
+  }
+

@@ -4,7 +4,6 @@ class B
 	a:1
 
 class A extends B
-
 	b:(c)->
 		if b = 0
 			return b + c
@@ -24,9 +23,11 @@ class D
 
 true
 false
-new A().a.c.b
+new A()
 
 if c = 2222
 	"aaaaa
 	eeeaaaaaa"
 this.c
+[1,2,3]
+[]

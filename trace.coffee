@@ -29,7 +29,7 @@ exports.trace = (Node,env=null)->
       top.extend = (Node.parent?) or (top.extend)
       # console.log "top:",getTopEnv env
       exports.trace Node.body,newEnv
-    when "Literal","Operator", "Identifier","Bool","Member","New","String","Return"
+    when "Literal","Operator", "Identifier","Bool","Member","New","String","Return","Array"
       env
     when "BlockStatement"
       if env is null
@@ -41,7 +41,7 @@ exports.trace = (Node,env=null)->
     when "AssignmentExpression"
       left = Node.left
       if left.type is "Member"
-        if left.prop.length is 0
+        if left.prop.length is 0 and left.obj.type is "Identifier"
           addVariable(left.obj.toString() ,env)
       exports.trace Node.right,env
       env

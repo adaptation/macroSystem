@@ -51,7 +51,7 @@ seqExpression = left:secondaryStatement right:(_ ";" TERMINATOR? _ expression)?{
 }
 
 //expr = expressionworthy
-expr = ex:(func / class / new / additive) {return ex;}
+expr = ex:(func / class / additive) {return ex;}
 
 
 whiteSpace = [\u0009\u000B\u000C\u0020\u00A0\uFEFF\u1680\u180E\u2000-\u200A\u202F\u205F\u3000]
@@ -144,7 +144,7 @@ memberNames = identifierName
 
 new = NEW __ e:member args:argumentList {return new node.New(e,args);} / NEW __ e:(expr / new / leftHandSideExpression){return new node.New(e,[])}
 
-leftHandSideExpression = new / member
+leftHandSideExpression = member
 
 return = RETURN _ e:secondaryExpression? {return new node.Return(e || null);}
 
@@ -164,7 +164,14 @@ multiplicative
 primary
   = literal / identifier / r:THIS {return new node.This;};
 
-literal = Number / bool / string
+literal = Number / bool / string / array
+
+array = "[" members:arrayBody TERMINATOR? _ "]" {return new node.Array(members);}
+arrayBody = TERMINDENT members:arrayMemberList DEDENT {return members;}
+  / _ members:arrayMemberList? {return members || [];}
+arrayMemberList = e:arrayMember _ es:(arrayMemberSeparator _ arrayMember _)* arrayMemberSeparator? {return [e].concat(es.map(function(e){return e[2];}));}
+arrayMember = expr / member
+arrayMemberSeparator = (TERMINATOR _ ","?) / ("," TERMINATOR? _)
 
 string = "\"\"\"" d:(stringData / "'" / ("\"" "\""? !"\""))+ "\"\"\"" {
       return new node.String(stripLeadingWhitespace(d.join('')));

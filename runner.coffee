@@ -12,7 +12,7 @@ input = Preprocessor.processSync csExpression
 parser = PEG.buildParser fs.readFileSync('scratch.pegjs').toString()
 
 ast = parser.parse input
-console.log "\nAST:",ast#.body[0].block[0] #.body[0].block[0].expr.body.block
+# console.log "\nAST:",ast#.body[0].block[0] #.body[0].block[0].expr.body.block
 
 # test = ecg.generate (ast.toESC())
 # console.log test

@@ -6,7 +6,7 @@ class B
 class A extends B
 	b:(c)->
 		if b = 0
-			return b + c
+			b
 		else
 			return b - c
 	if a = 1
@@ -28,5 +28,5 @@ if c = 2222
 	"aaaaa
 	eeeaaaaaa"
 this.c
-[1,2,3]
-[]
+()->
+	[1]

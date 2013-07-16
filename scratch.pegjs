@@ -149,13 +149,11 @@ TERMINDENT = t:(TERMINATOR INDENT) {return t.join("");}
 args = a:identifier as:(_ ("," TERMINATOR? / TERMINATOR) _ identifier )* {
   return [a].concat(as.map(function(x){return x[3]}));
 }
-
 //preprocessor DEDENT -> DEDENT TERM
 funcBody = _ TERMINDENT b:block DEDENT TERM{return b }
     / _ s:statement {return new node.Block([s]); }
-
 func = params:("(" _ (TERMINDENT p:args DEDENT TERMINATOR {return p;} / args)? _ ")" _ )? "->" _ body:funcBody? {
-return new node.Function(params[2],body);
+return new node.Function(params[2],body || null);
 }
 
 

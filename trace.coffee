@@ -9,10 +9,11 @@ exports.trace = (Node,env=null)->
     when "ExpressionStatement"
       exports.trace Node.expr,env
     when "FunctionExpression"
-      console.log "Func", Node.args
-      exports.trace Node.body,env
-      args = _.map Node.args,(x)-> (x.toString())
-      Node.body.env.variable = _.reject(Node.body.env.variable,(x)->(_.contains(args,x)))
+      if Node.body
+        exports.trace Node.body,env
+        if Node.body.env?
+          args = _.map Node.args,(x)-> (x.toString())
+          Node.body.env.variable = _.reject(Node.body.env.variable,(x)->(_.contains(args,x)))
       env
     when 'BinaryExpression'
       env

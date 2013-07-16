@@ -33,7 +33,35 @@ exports.Function = class Function
       params = @args.map((x)-> return x.toESC())
     else
       params = []
-    return makeFunc null,params,@body.toESC(),false
+
+    if @body?
+      @body.block = setReturn(@body.block)
+      body = @body.toESC()
+    else
+      body = makeBlock [makeEmpty]
+    return makeFunc null,params,body,false
+
+setReturn = (body)->
+  last = body.pop()
+  switch last.type
+    when 'ExpressionStatement'
+      body.push (new Return(last.expr))
+    when 'Return'
+      body.push last
+    when 'IfStatement'
+      console.log "If B ",last.body
+      last.body.block = setReturn last.body.block
+      if last.else
+        last.else.block = setReturn last.else.block
+      body.push last
+    else
+      body.push(new Return(last))
+  return body
+
+
+
+
+makeEmpty = {type:"EmptyStatement"}
 
 makeFunc = (id,params,body,ex)->
   return {

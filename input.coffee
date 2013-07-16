@@ -24,7 +24,6 @@ class D
 true
 false
 new A()
-
 if c = 2222
 	"aaaaa
 	eeeaaaaaa"

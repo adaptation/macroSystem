@@ -1,4 +1,4 @@
-_ = require 'underscore'
+_ = require 'lodash'
 node = require './node.coffee'
 
 exports.trace = (Node,env=null)->
@@ -9,7 +9,11 @@ exports.trace = (Node,env=null)->
     when "ExpressionStatement"
       exports.trace Node.expr,env
     when "FunctionExpression"
+      console.log "Func", Node.args
       exports.trace Node.body,env
+      args = _.map Node.args,(x)-> (x.toString())
+      Node.body.env.variable = _.reject(Node.body.env.variable,(x)->(_.contains(args,x)))
+      env
     when 'BinaryExpression'
       env
     when 'IfStatement'
@@ -46,7 +50,7 @@ exports.trace = (Node,env=null)->
       exports.trace Node.right,env
       env
     when "InsAssign"
-      exports.trace Node.right
+      exports.trace Node.right,env
       Node.className = env.parent.className
       env
     when "Constructor"

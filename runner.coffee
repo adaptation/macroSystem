@@ -233,7 +233,7 @@ arguments:[]}}}
 
 
 
-a = ecg.generate logical
+a = ecg.generate b
 console.log a
 
 #file = fs.openSync("./log.txt",'a')

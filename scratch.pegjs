@@ -25,7 +25,6 @@ var precedence =
   ['+','-'],
   ['*','/','%']
   ];
-var chainableComparisonOps = ['<=', '>=', '<', '>', '===', '!=='];
 var precedenceTable = (function(){
   var table = {}, ops, op;
   for(var level = 0, l = precedence.length; level < l; ++level) {
@@ -37,69 +36,37 @@ var precedenceTable = (function(){
   }
   return table;
   }());
-var foldBinaryExpr = function(parts,ignoreChains){
-  var stack, chainStack, nextPrec, nextOp, className, ctor, prec, rightOperand, leftOperand, operator, i, expr;
-  if(parts.length < 3) return parts[0];
-  stack = [].slice.call(parts, 0, 3);
-  parts = [].slice.call(parts, 3);
-  while(parts.length > 0) {
-    nextOp = parts[0];
 
-    if(!ignoreChains && stack.length > 2) {
-      operator = stack[stack.length - 2];
-      // reduce chained comparisons
-      if(chainableComparisonOps.indexOf(operator) >= 0 && chainableComparisonOps.indexOf(nextOp) >= 0) {
-        chainStack = stack.slice(-3);
-        stack = stack.slice(0, stack.length - 3);
-        do {
-          operator = nextOp;
-          chainStack.push(parts.shift(), parts.shift());
-          nextOp = parts[0];
-          if(nextOp) {
-            nextPrec = precedenceTable[nextOp];
-            prec = precedenceTable[operator];
-          }
-        // TODO: I would love `a < b is c < d` to instead denote `(a < b) is (c < d)`
-        } while(nextOp != null && (nextPrec > prec || chainableComparisonOps.indexOf(nextOp) >= 0));
-        stack.push(new node.Bi(foldBinaryExpr(chainStack, true)));
-        continue;
-      }
+var foldBinaryOp = function(parts) {
+  var left, nextOp, op, right;
+  if (parts.length < 3) {
+    return parts[0];
+  } else if (parts.length === 3) {
+    return makeTerm(parts[0], parts[1], parts[2]);
+  } else {
+    precedence = precedenceTable;
+    left = parts.shift();
+    op = parts.shift();
+    right = parts.shift();
+    nextOp = parts.shift();
+    if (precedence[op] <= precedence[nextOp]) {
+      return makeTerm(left, op, makeTerm(right, nextOp, foldBinaryOp(parts)));
+    } else {
+      return makeTerm(makeTerm(left, op, right), nextOp, foldBinaryOp(parts));
     }
-
-    // reduce
-    while(
-      stack.length > 2 &&
-      (
-        operator = stack[stack.length - 2],
-        prec = precedenceTable[operator],
-        nextPrec = precedenceTable[nextOp],
-        nextPrec < prec ||
-        chainableComparisonOps.indexOf(operator) >= 0 && chainableComparisonOps.indexOf(nextOp) >= 0 ||
-        nextPrec == prec && associativities[operator] === LEFT_ASSOCIATIVE
-      )
-    ) {
-      rightOperand = stack.pop();
-      stack.pop(); // operator
-      leftOperand = stack.pop();
-      stack.push(new constructorLookup[operator](leftOperand, rightOperand));
-    }
-    // shift
-    stack.push(parts.shift()); // operator
-    stack.push(parts.shift()); // next operand
   }
-
-  // reduce the rest of the stack
-  expr = stack.pop();
-  while(stack.length > 0)
-    expr = new constructorLookup[stack.pop()](stack.pop(), expr);
-
-  return expr;
-  return 0
 };
 
+var makeTerm = function(l, op, r) {
+  return new node.BinaryOperation(l,op,r);
+};
+
+
 }
+
+
 start
-  =program
+  =binaryExpression //program
 
 program = leader:TERMINATOR? _ b:toplevelBlock {return new node.Program([b])}
 
@@ -131,7 +98,7 @@ seqExpression = left:secondaryStatement right:(_ ";" TERMINATOR? _ expression)?{
 }
 
 //expr = expressionworthy
-expr = ex:(func / class / additive) {return ex;}
+expr = ex:(func / class ) {return ex;}
 
 
 whiteSpace = [\u0009\u000B\u000C\u0020\u00A0\uFEFF\u1680\u180E\u2000-\u200A\u202F\u205F\u3000]
@@ -209,8 +176,12 @@ argument = expr
 
 member = e:(primary / NEW __ e:member args:argumentList {return new node.New(e,args);}) accesses:(memberAccessOps)* {
   var acc = us.reduce(accesses,function(memo, a){ return memo.concat(a); }, []);
-  return new node.Member(e,acc);
-  } / NEW __ e:member args:argumentList{return new node.New(e,args);}
+  if(acc.length <= 0){
+    return e;
+  }else{
+    return new node.Member(e,acc);
+  }
+} / NEW __ e:member args:argumentList{return new node.New(e,args);}
 memberAccess = e:(primary / NEW __ e:member args:argumentList {return new node.New(e,args);})
   accesses:(argumentList memberAccessOps / memberAccessOps)+ {
   var acc = us.reduce(accesses,function(memo, a){ return memo.concat(a); }, []);
@@ -239,11 +210,15 @@ multiplicative
   = left:primary _ op:multiOperator _ right:multiplicative { return new node.FourArthmeticOperation(left,new node.Operator(op),right); }
   / primary
 
-binaryExprssion = left:leftHandSideExpression rights:(_ o:binaryOperator TERMINATOR? _ e:(expr / leftHandSideExpression){return [o,e]})* {
-  return foldBunaryExpr([left].concat(rights));
+binaryExpression = left:leftHandSideExpression rights:(_ o:binaryOperator TERMINATOR? _ e:(expr / leftHandSideExpression){return [o,e]})* {
+  console.log("l",left);
+  console.log("r",rights);
+  return foldBinaryOp([left].concat(us.flatten(rights)));
 }
-CompoundAssignmentOperators = a:("&&" / "||" / [?*/%] / "+" !"+" / "-" !"-") !identifierPart {return a}
-binaryOperator = (CompoundAssignmentOperators !"=") / "<=" / ">=" / "<" / ">" / "==" {return "===";} / "!=" {return "!==";}
+CompoundAssignmentOperators = a:("&&" / "||" / [*/%] / e:"+" !"+" {return e;} / e:"-" !"-" {return e;}) !identifierPart {
+  return a;
+}
+binaryOperator = a:CompoundAssignmentOperators !"=" {return a;} / "<=" / ">=" / "<" / ">" / "==" {return "===";} / "!=" {return "!==";}
 primary
   = literal / identifier / r:THIS {return new node.This;};
 

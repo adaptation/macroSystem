@@ -89,11 +89,24 @@ exports.FourArthmeticOperation = class FourArthmeticOperation
   toString:()->
     return @left.toString() + @op + @right.toString()
   toESC:()->
-    return makeBinaryOp @left.toESC(),@op,@right.toESC()
+    console.log "L : ",@left
+    console.log "op: " ,@op
+    console.log "R:" ,@right
+    if @op is "||" or @op is "&&"
+      return makeLogicalOp @left.toESC(),@op,@right.toESC()
+    else
+      return makeBinaryOp @left.toESC(),@op,@right.toESC()
 
 
 makeBinaryOp = (left,op,right)->
   return {type: 'BinaryExpression',
+  operator: op,
+  left:left,
+  right:right
+  }
+
+makeLogicalOp = (left,op,right)->
+  return {type: 'LogicalExpression',
   operator: op,
   left:left,
   right:right

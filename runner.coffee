@@ -3,7 +3,7 @@ ecg = require 'escodegen'
 fs = require 'fs'
 TR = require './trace.coffee'
 {Preprocessor} = require './preprocessor.coffee'
-source = "./input.coffee"
+source = "./input2.coffee"
 
 csExpression = fs.readFileSync source , "utf8"
 input = Preprocessor.processSync csExpression
@@ -20,8 +20,11 @@ ast = parser.parse input
 p = TR.trace ast
 # console.log "\np:", p#.body[0].block[0].expr.body
 
-b = p.toESC()
+b =  ast.toESC() #p.toESC()
 # console.log "\nb:", b.body[0].body[1]#.expression#.right.callee.body.body[1].expression.left.property #.body[0].body[2].expression.right.body.body[2].consequent.body
+
+a = ecg.generate b
+console.log a
 
 cond = {
   type: 'IfStatement',
@@ -60,12 +63,7 @@ expr = {
 binary = {
   type: 'BinaryExpression',
   operator: "<",
-  left:{
-    type: 'BinaryExpression',
-    operator: ">",
-    left:{type:'Literal',value:1},
-    right:{type:'Literal',value:2}
-  },
+  left:{type:'Literal',value:1},
   right:{
     type: 'BinaryExpression',
     operator: "+",
@@ -73,7 +71,12 @@ binary = {
     right:{type:'Literal',value:4}
   }
 }
-
+{
+    type: 'BinaryExpression',
+    operator: "===",
+    left:{type:'Literal',value:1},
+    right:{type:'Literal',value:2}
+  }
 logical = {
   type:"LogicalExpression",
   operator:"||",
@@ -233,8 +236,8 @@ arguments:[]}}}
 
 
 
-a = ecg.generate b
-console.log a
+# a = ecg.generate b
+# console.log a
 
 #file = fs.openSync("./log.txt",'a')
 

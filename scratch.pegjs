@@ -66,7 +66,7 @@ var makeTerm = function(l, op, r) {
 
 
 start
-  =binaryExpression //program
+  =program
 
 program = leader:TERMINATOR? _ b:toplevelBlock {return new node.Program([b])}
 
@@ -81,12 +81,12 @@ block = s:statement ss:(_ TERMINATOR _ statement)* TERMINATOR? {
 }
 
 
-statement = ex:(assign / member / expr ) {return new node.Expr(ex);}
+statement = ex:(assignmentExpression  / expr ) {return new node.Expr(ex);}
   / conditional / return
 
 secondaryStatement = secondaryExpression / return
 
-secondaryExpression = expr / assign
+secondaryExpression = expr / assignmentExpression
 
 expression = expr / seqExpression
 
@@ -99,7 +99,7 @@ seqExpression = left:secondaryStatement right:(_ ";" TERMINATOR? _ expression)?{
 
 //expr = expressionworthy
 expr = ex:(func / class ) {return ex;}
-
+assignmentExpression = assign / binaryExpression
 
 whiteSpace = [\u0009\u000B\u000C\u0020\u00A0\uFEFF\u1680\u180E\u2000-\u200A\u202F\u205F\u3000]
   / "\r" / s:("\\" "\r"? "\n") { return s.join("");}
@@ -124,7 +124,9 @@ return new node.Function(params[2],body || null);
 }
 
 
-assign = left:leftHandSideExpression _ "=" !"=" right:(TERMINDENT e:(memberAccess / expr) DEDENT { return e; } / TERMINATOR? _ e:expr   { return e; }){
+assign = left:leftHandSideExpression _ "=" !"=" right:
+(TERMINDENT e:secondaryExpression DEDENT { return e; } / TERMINATOR? _ e:secondaryExpression { return e; })
+{
        return new node.Assign(left,right);
       }
 
@@ -154,8 +156,8 @@ classStatement
   = constructor / ex:(instanceAssignment / expr) {return new node.Expr(ex);}
   / conditional
 instanceAssignment = key:ObjectIni _ ":" _ e:
-  ( TERMINDENT e:expr DEDENT { return {expr: e}; }
-      / TERMINATOR? _ e:expr { return {expr: e}; })
+  ( TERMINDENT e:expression DEDENT { return {expr: e}; }
+      / TERMINATOR? _ e:secondaryExpression { return {expr: e}; })
 {
         return new node.InsAssign(key, e.expr);
 }
@@ -211,8 +213,6 @@ multiplicative
   / primary
 
 binaryExpression = left:leftHandSideExpression rights:(_ o:binaryOperator TERMINATOR? _ e:(expr / leftHandSideExpression){return [o,e]})* {
-  console.log("l",left);
-  console.log("r",rights);
   return foldBinaryOp([left].concat(us.flatten(rights)));
 }
 CompoundAssignmentOperators = a:("&&" / "||" / [*/%] / e:"+" !"+" {return e;} / e:"-" !"-" {return e;}) !identifierPart {
@@ -223,6 +223,7 @@ primary
   = literal / identifier / r:THIS {return new node.This;};
 
 literal = Number / bool / string / array
+
 
 array = "[" members:arrayBody TERMINATOR? _ "]" {return new node.Array(members);}
 arrayBody = TERMINDENT members:arrayMemberList DEDENT {return members;}

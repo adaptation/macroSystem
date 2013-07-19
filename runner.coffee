@@ -3,7 +3,7 @@ ecg = require 'escodegen'
 fs = require 'fs'
 TR = require './trace.coffee'
 {Preprocessor} = require './preprocessor.coffee'
-source = "./input2.coffee"
+source = "./input.coffee"
 
 csExpression = fs.readFileSync source , "utf8"
 input = Preprocessor.processSync csExpression
@@ -20,7 +20,7 @@ ast = parser.parse input
 p = TR.trace ast
 # console.log "\np:", p#.body[0].block[0].expr.body
 
-b =  ast.toESC() #p.toESC()
+b =  p.toESC() #ast.toESC() #
 # console.log "\nb:", b.body[0].body[1]#.expression#.right.callee.body.body[1].expression.left.property #.body[0].body[2].expression.right.body.body[2].consequent.body
 
 a = ecg.generate b

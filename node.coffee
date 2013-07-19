@@ -49,7 +49,6 @@ setReturn = (body)->
     when 'Return'
       body.push last
     when 'IfStatement'
-      console.log "If B ",last.body
       last.body.block = setReturn last.body.block
       if last.else
         last.else.block = setReturn last.else.block
@@ -89,9 +88,6 @@ exports.FourArthmeticOperation = class FourArthmeticOperation
   toString:()->
     return @left.toString() + @op + @right.toString()
   toESC:()->
-    console.log "L : ",@left
-    console.log "op: " ,@op
-    console.log "R:" ,@right
     if @op is "||" or @op is "&&"
       return makeLogicalOp @left.toESC(),@op,@right.toESC()
     else
@@ -395,7 +391,10 @@ makeMemberObj = (obj, prop)->
   toString:->
     "new "+@obj.toString()+"( "+@args.map((x)->x.toString())+" )"
   toESC:->
-    return (makeNew @obj.obj.toESC(),@args.map((x)->x.toESC()))
+    if @obj.type is "Identifier"
+      return (makeNew @obj.toESC(),@args.map((x)->x.toESC()))
+    else
+      return (makeNew @obj.obj.toESC(),@args.map((x)->x.toESC()))
 
 @Return = class Return
   constructor:(@expr)->

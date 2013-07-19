@@ -1,21 +1,21 @@
-a.b = 1
+a = 1
 
 class B
-	a:1
+	a:2
 
 class A extends B
 	b:(c)->
-		if b = 0
+		if b = 3
 			b
 		else
 			return b - c
-	if a = 1
+	if a = 4
 		a
 	constructor:(a)->
 		this.a = a
 
 class C extends A
-	a : 2
+	a : 5
 
 class D
 	constructor:(a)->
@@ -29,4 +29,4 @@ if c = 2222
 	eeeaaaaaa"
 this.c
 ()->
-	[1]
+	[6]

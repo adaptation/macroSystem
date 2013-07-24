@@ -20,7 +20,7 @@ ast = parser.parse input
 p = TR.trace ast
 # console.log "\np:", p#.body[0].block[0].expr.body
 
-b =  ast.toESC() #p.toESC() #
+b =  ast.toESC() #p.toESC() #ast.toESC()
 # console.log "\nb:", b#.body[0].body[1]#.expression#.right.callee.body.body[1].expression.left.property #.body[0].body[2].expression.right.body.body[2].consequent.body
 
 a = ecg.generate b

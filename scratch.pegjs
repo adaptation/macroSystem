@@ -61,16 +61,34 @@ var makeTerm = function(l, op, r) {
   return new node.BinaryOperation(l,op,r);
 };
 
+var createMemberCall = function(head,access){
+  switch (access.acc){
+    case "call":
+      return new node.Call(head,access.as);
+      break;
+    case "member":
+      return new node.Member(head,access.as);
+      break;
+    default:
+      return head;
+  }
+}
 
 }
 
 
 start
-  = program
+  =program
 
-b = left:leftHandSideExpression rights:(_ o:binaryOperator TERMINATOR? _ e:(expr / leftHandSideExpression){return [o,e]}) {
+b = left:leftHandSideExpression rights:(_ o:bO _ e:(expr / leftHandSideExpression){return [o,e]})* {
+  console.log(left,rights);
   return foldBinaryOp([left].concat(us.flatten(rights)));
 }
+CAO = a:("&&" / "||" / [*/%] / e:"+" !"+" {return e;} / e:"-" !"-" {return e;}){
+  return a;
+}
+bO = a:CAO !"=" {return a;} / "<=" / ">=" / a:"<" !identifierPart {return a;}/ ">" / "==" {return "===";} / "!=" {return "!==";}
+
 
 program = leader:TERMINATOR? _ b:toplevelBlock {return new node.Program([b])}
 
@@ -173,6 +191,8 @@ constructor = CONSTRUCTOR _ ":" _ e:
 {
         return new node.Constructor(e.expr);
 }
+
+
 argumentList = "(" _ a:argumentListContents? _ ")"{return a || []}
 argumentListContents = e:argument es:(_ ("," / TERMINATOR) _ argument)* ("," / TERMINATOR)? {return [e].concat(es.map(function(e){return e[3];}));} /
 TERMINDENT a:argumentListContents DEDENT TERMINATOR? {return a;}
@@ -206,10 +226,23 @@ new = member / NEW __ e:(expr / new / leftHandSideExpression){return new node.Ne
 
 
 call
-  = fn:member _ accesses:secondaryArgumentList {
-  return new node.Call(fn,accesses);
+  = fn:member _ accesses:callAccesses? _ secondaryArgs:secondaryArgumentList? {
+  if(accesses) fn = us.foldl(accesses,createMemberCall,fn);
+  if(secondaryArgs){
+    fn = new node.Call(fn,secondaryArgs);
+  }
+  return fn;
 }
+callAccesses
+  = TERMINDENT as:callAccesses DEDENT { return as; }
+  / as:argumentList bs:callAccesses? {
 
+    return [{acc:"call",as:as}].concat(bs || []);
+   }
+   / as:memberAccessOps bs:callAccesses? {
+
+    return [{acc:"member",as:as}].concat(bs || []);
+   }
 
 leftHandSideExpression = call / new
 
@@ -220,7 +253,7 @@ return = RETURN _ e:secondaryExpression? {return new node.Return(e || null);}
 binaryExpression = left:leftHandSideExpression rights:(_ o:binaryOperator TERMINATOR? _ e:(expr / leftHandSideExpression){return [o,e]})* {
   return foldBinaryOp([left].concat(us.flatten(rights)));
 }
-CompoundAssignmentOperators = a:("&&" / "||" / [*/%] / e:"+" !"+" {return e;} / e:"-" !"-" {return e;}) !identifierPart {
+CompoundAssignmentOperators = a:("&&" / "||" / [*/%] / e:"+" !"+" {return e;} / e:"-" !"-" {return e;}){
   return a;
 }
 binaryOperator = a:CompoundAssignmentOperators !"=" {return a;} / "<=" / ">=" / "<" / ">" / "==" {return "===";} / "!=" {return "!==";}

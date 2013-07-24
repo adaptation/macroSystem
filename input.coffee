@@ -6,7 +6,7 @@ class B
 class A extends B
 	b:(c)->
 		if b = 3
-			b
+			b+c
 		else
 			return b - c
 	if a = 4
@@ -31,4 +31,4 @@ if c || d
 this.c
 ()->
 	[6]
-console.log("aaaa",1)
+console.log("aaaa",1,b).a(111,1,1,1,2)

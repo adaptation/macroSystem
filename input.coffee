@@ -20,13 +20,15 @@ class C extends A
 class D
 	constructor:(a)->
 		this.a = a
-
+a + 2
 true
 false
+a.b.c.d
 new A()
-if c = 2222
+if c || d
 	"aaaaa
 	eeeaaaaaa"
 this.c
 ()->
 	[6]
+console.log("aaaa",1)

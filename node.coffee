@@ -57,9 +57,6 @@ setReturn = (body)->
       body.push(new Return(last))
   return body
 
-
-
-
 makeEmpty = {type:"EmptyStatement"}
 
 makeFunc = (id,params,body,ex)->
@@ -73,14 +70,6 @@ makeFunc = (id,params,body,ex)->
       generator: false,
       expression: ex
     }
-
-exports.FourArthmeticOperation = class FourArthmeticOperation
-  constructor:(@left,@op,@right)->
-    @type = 'BinaryExpression'
-  toString:()->
-    return "("+@left.toString()+" "+@op.toString()+" "+@right.toString()+")"
-  toESC:()->
-    return makeBinaryOp @left.toESC(), @op.toESC(), @right.toESC()
 
 @BinaryOperation = class BinaryOperation
   constructor:(@left,@op,@right)->
@@ -430,3 +419,19 @@ makeArray = (members)->
     elements:members
   }
 
+@Object = class Object
+  constructor:(@members)->
+    @type = "Object"
+  toString:()->
+    return "{"+@members.map((x)->x.toString()) + "}"
+  toESC:()->
+    console.log @members
+    return makeObj @members.map((x)->{key:x.key.toESC(),value:x.value.toESC(),kind:"init"})
+
+@Call = class Call
+  constructor:(@callee,@args)->
+    @type = "Call"
+  toString:()->
+    return @callee.toString() + "(" + @args.map((x)->x.toString()) + ")"
+  toESC:()->
+    return makeCall @callee.toESC(),@args.map((x)->x.toESC())

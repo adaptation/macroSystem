@@ -20,8 +20,8 @@ ast = parser.parse input
 p = TR.trace ast
 # console.log "\np:", p#.body[0].block[0].expr.body
 
-b =  p.toESC() #ast.toESC() #
-# console.log "\nb:", b.body[0].body[1]#.expression#.right.callee.body.body[1].expression.left.property #.body[0].body[2].expression.right.body.body[2].consequent.body
+b =  ast.toESC() #p.toESC() #
+# console.log "\nb:", b#.body[0].body[1]#.expression#.right.callee.body.body[1].expression.left.property #.body[0].body[2].expression.right.body.body[2].consequent.body
 
 a = ecg.generate b
 console.log a
@@ -143,6 +143,11 @@ forin = {
   each: false;
 }
 
+object = {
+  type: "ObjectExpression";
+  properties: [{ key:{ type: 'Identifier', name: 'a' },value: { type:'Literal' , value:1 },kind: "init"},{ key:{ type: 'Identifier', name: 'b' },value: { type:'Literal' , value:2 },kind: "init"}];
+}
+
 {type:'Program',
 body:[{type:'BlockStatement',
 body:[{type:'ExpressionStatement',
@@ -236,7 +241,7 @@ arguments:[]}}}
 
 
 
-# a = ecg.generate b
+a = ecg.generate call
 # console.log a
 
 #file = fs.openSync("./log.txt",'a')

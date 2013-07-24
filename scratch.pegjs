@@ -66,7 +66,11 @@ var makeTerm = function(l, op, r) {
 
 
 start
-  =program
+  = program
+
+b = left:leftHandSideExpression rights:(_ o:binaryOperator TERMINATOR? _ e:(expr / leftHandSideExpression){return [o,e]}) {
+  return foldBinaryOp([left].concat(us.flatten(rights)));
+}
 
 program = leader:TERMINATOR? _ b:toplevelBlock {return new node.Program([b])}
 
@@ -99,11 +103,13 @@ seqExpression = left:secondaryStatement right:(_ ";" TERMINATOR? _ expression)?{
 
 //expr = expressionworthy
 expr = ex:(func / class ) {return ex;}
+
+
 assignmentExpression = assign / binaryExpression
+
 
 whiteSpace = [\u0009\u000B\u000C\u0020\u00A0\uFEFF\u1680\u180E\u2000-\u200A\u202F\u205F\u3000]
   / "\r" / s:("\\" "\r"? "\n") { return s.join("");}
-
 _  = __?
 __ = ws:whiteSpace+ {return ws.join("");}
 
@@ -131,7 +137,7 @@ assign = left:leftHandSideExpression _ "=" !"=" right:
       }
 
 
-conditional = IF _ cond:assign body:conditionalBody elseClause:elseClause? {
+conditional = IF _ cond:assignmentExpression body:conditionalBody elseClause:elseClause? {
   return new node.Conditional(cond, body.block, elseClause);
 }
 conditionalBody = _ TERMINDENT b:block DEDENT TERM{ return {block: b}; }
@@ -167,14 +173,16 @@ constructor = CONSTRUCTOR _ ":" _ e:
 {
         return new node.Constructor(e.expr);
 }
-ObjectIni = i:identifierName
-  / Number
-
-
 argumentList = "(" _ a:argumentListContents? _ ")"{return a || []}
 argumentListContents = e:argument es:(_ ("," / TERMINATOR) _ argument)* ("," / TERMINATOR)? {return [e].concat(es.map(function(e){return e[3];}));} /
 TERMINDENT a:argumentListContents DEDENT TERMINATOR? {return a;}
-argument = expr
+argument = expression
+
+secondaryArgumentList = "(" _ a:secondaryArgumentContents? _ ")"{return a || []}
+secondaryArgumentContents = e:secondaryArgument es:(_ ("," / TERMINATOR) _ secondaryArgument)* ("," / TERMINATOR)? {return [e].concat(es.map(function(e){return e[3];}));} /
+TERMINDENT a:secondaryArgumentContents DEDENT TERMINATOR? {return a;}
+secondaryArgument = secondaryExpression
+
 
 member = e:(primary / NEW __ e:member args:argumentList {return new node.New(e,args);}) accesses:(memberAccessOps)* {
   var acc = us.reduce(accesses,function(memo, a){ return memo.concat(a); }, []);
@@ -183,7 +191,7 @@ member = e:(primary / NEW __ e:member args:argumentList {return new node.New(e,a
   }else{
     return new node.Member(e,acc);
   }
-} / NEW __ e:member args:argumentList{return new node.New(e,args);}
+} / NEW __ e:member args:secondaryArgumentList{return new node.New(e,args);}
 memberAccess = e:(primary / NEW __ e:member args:argumentList {return new node.New(e,args);})
   accesses:(argumentList memberAccessOps / memberAccessOps)+ {
   var acc = us.reduce(accesses,function(memo, a){ return memo.concat(a); }, []);
@@ -193,24 +201,21 @@ memberAccessOps = TERMINATOR? _ "." TERMINATOR? _ e:memberNames {return [e]}
 // TERMINDENT "." _ e:memberNames memberAccessOps* DEDENT {return {op:[e]}} /
 memberNames = identifierName
 
-new = NEW __ e:member args:argumentList {return new node.New(e,args);} / NEW __ e:(expr / new / leftHandSideExpression){return new node.New(e,[])}
 
-leftHandSideExpression = member
+new = member / NEW __ e:(expr / new / leftHandSideExpression){return new node.New(e,[])}
+
+
+call
+  = fn:member _ accesses:secondaryArgumentList {
+  return new node.Call(fn,accesses);
+}
+
+
+leftHandSideExpression = call / new
+
 
 return = RETURN _ e:secondaryExpression? {return new node.Return(e || null);}
 
-
-addOperator = "+" / "-"
-
-additive
-  = left:multiplicative _ op:addOperator _ right:additive {return new node.FourArthmeticOperation(left,new node.Operator(op),right); }
-  / multiplicative
-
-multiOperator = "*"/ "/"
-
-multiplicative
-  = left:primary _ op:multiOperator _ right:multiplicative { return new node.FourArthmeticOperation(left,new node.Operator(op),right); }
-  / primary
 
 binaryExpression = left:leftHandSideExpression rights:(_ o:binaryOperator TERMINATOR? _ e:(expr / leftHandSideExpression){return [o,e]})* {
   return foldBinaryOp([left].concat(us.flatten(rights)));
@@ -219,10 +224,48 @@ CompoundAssignmentOperators = a:("&&" / "||" / [*/%] / e:"+" !"+" {return e;} / 
   return a;
 }
 binaryOperator = a:CompoundAssignmentOperators !"=" {return a;} / "<=" / ">=" / "<" / ">" / "==" {return "===";} / "!=" {return "!==";}
+
+
 primary
   = literal / identifier / r:THIS {return new node.This;};
 
-literal = Number / bool / string / array
+
+literal = Number / bool / string / array / object
+
+
+object = "{" members:objectBody TERMINATOR? _ "}" {
+  return new node.Object(members);
+}
+objectBody = TERMINDENT members:objectMemberList DEDENT{return members;}
+  / _ members:objectMemberList? {return members || [];}
+objectMemberList = e:objectMember _ es:(objectMemberSeparator _ objectMember _)* ","?{
+  return [e].concat(es.map(function(e){return e[2]}))
+}
+objectMemberSeparator = arrayMemberSeparator
+objectMember = implicitObjectLiteralMember
+  / v:ObjectIni {
+      return {key:v,value:v};
+  }
+
+ObjectIni = i:identifierName
+  / Number /string
+
+implicitObjectLiteral
+  = members:implicitObjectLiteralMemberList {
+    return new node.Object(members);
+  }
+implicitObjectLiteralMemberList
+  = e:implicitObjectLiteralMember es:(implicitObjectLiteralMemberSeparator implicitObjectLiteralMember)* {
+      return [e].concat(es.map(function(e){ return e[1]; }));
+    }
+implicitObjectLiteralMemberSeparator
+  = TERMINATOR ","? _
+  / _ "," TERMINATOR? _
+implicitObjectLiteralMember
+  = key:ObjectIni _ ":" _ val:implicitObjectMemberValue {
+      return {key:key,value:val};
+    }
+implicitObjectMemberValue = expression / TERMINDENT o:implicitObjectLiteral DEDENT {return o;}
 
 
 array = "[" members:arrayBody TERMINATOR? _ "]" {return new node.Array(members);}

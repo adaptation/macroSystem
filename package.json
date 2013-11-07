@@ -1,10 +1,11 @@
 {
-"name":"macro",
-"version":"0.0.1",
-"devDependencies":{
-    "pegjs":"0.7.0",
-    "StringScanner":"0.0.3",
-    "escodegen":"0.0.22",
-    "underscore":"1.4.4"
-}
+  "name":"sol",
+  "version":"0.0.0",
+  "license": "MIT",
+  "devDependencies":{
+    "pegjs":"*",
+    "pegjs-coffee-plugin":"*",
+    "escodegen":"*",
+    "lodash":"*"
+  }
 }

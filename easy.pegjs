@@ -66,179 +66,63 @@ createMemberCall = (head,access)->
   switch access.acc
     when "call"
       return new node.Call(head,access.as)
-    when "member"
-      return new node.Member(head,access.as)
     else
       return head
 }
 
+start = program
 
-start
-  = program
-
-program = leader:TERMINATOR? _ b:toplevelBlock {return new node.Program([b])}
-
-toplevelBlock
-  = s:toplevelStatement ss:(_ TERMINATOR _ toplevelStatement)* TERMINATOR?
-{new node.Block([s].concat(ss.map((a)->a[3])))}
-
-toplevelStatement = s:statement { return s; }
+program = TERMINATOR? _ b:block
+{  return new node.Program([b]) }
 
 block = s:statement ss:(_ TERMINATOR _ statement)* TERMINATOR?
 {new node.Block([s].concat(ss.map((s)->s[3])))}
 
+statement = ex:expressionworthy {return new node.Expr(ex);} / conditional / return
 
-statement = ex:(assignmentExpression  / expr ) {return new node.Expr(ex);}
-  / conditional / return
+expressionworthy = ABExpr / call / func
+ABExpr = assignExpr / binaryExpr
 
-secondaryStatement = secondaryExpression / return
-
-secondaryExpression = expr / assignmentExpression
-
-expression = expr / seqExpression
-
-seqExpression = left:secondaryStatement right:(_ ";" TERMINATOR? _ expression)?{
-  if !right
-    return left
-  return
-}
-
-//expr = expressionworthy
-expr = ex:(func / class ) {return ex;}
-
-
-assignmentExpression = assign / binaryExpression
-
-
-whiteSpace = [\u0009\u000B\u000C\u0020\u00A0\uFEFF\u1680\u180E\u2000-\u200A\u202F\u205F\u3000]
-  / "\r" / s:("\\" "\r"? "\n") { return s.join("");}
-_  = __?
-__ = ws:whiteSpace+ {return ws.join("");}
-
-INDENT = "\uEFEF"
-DEDENT = ws:(TERMINATOR? _) "\uEFFE" { return ws.join(""); }
-TERM = n:("\r"? "\n"){return n.join("");} / "\uEFFF" { return ''; }
-TERMINATOR = t:(_ TERM)+ {return t.join("");}
-TERMINDENT = t:(TERMINATOR INDENT) {return t.join("");}
-
-args = a:identifier as:(_ ("," TERMINATOR? / TERMINATOR) _ identifier )* {
-  return [a].concat(as.map((x)->x[3]));
-}
+func = params:("(" _ args? _ ")" _ )? "->" _ body:funcBody?
+{ new node.Function(params[2],body || null) }
+args = a:identifier as:(_ "," _ identifier )* {return [a].concat(as.map((x)->x[3]));}
 //preprocessor DEDENT -> DEDENT TERM
-funcBody = _ TERMINDENT b:block DEDENT TERM{return b }
-    / _ s:statement {return new node.Block([s]); }
-func = params:("(" _ (TERMINDENT p:args DEDENT TERMINATOR {return p;} / args)? _ ")" _ )? "->" _ body:funcBody? {
-  new node.Function(params[2],body || null)
-}
+funcBody = TERMINDENT b:block DEDENT TERM{return b }
+    / s:statement {return new node.Block([s]); }
+
+assignExpr = left:left _ "=" !"=" _ right:expressionworthy
+{ return new node.Assign(left,right) }
 
 
-assign = left:leftHandSideExpression _ "=" !"=" right:(TERMINDENT e:secondaryExpression DEDENT { return e } / TERMINATOR? _ e:secondaryExpression { return e } ){
-  return new node.Assign(left,right)
-}
-
-
-conditional = IF _ cond:assignmentExpression body:conditionalBody elseClause:elseClause? {
-  return new node.Conditional(cond, body.block, elseClause);
-}
-conditionalBody = _ TERMINDENT b:block DEDENT TERM{ return {block: b}; }
-    / TERMINATOR? _ THEN _ s:statement { return {block: s} }
-    / _ THEN { return {block: null}; }
-elseClause = _ TERMINATOR? _ ELSE b:elseBody { return b; }
-elseBody = funcBody
-
-
-class = CLASS n:(_ identifier)? parent:(_ EXTENDS _ extendee)? body:classBody{
-  name = if n
-      n[1]
-    else
-      null
-  parent = if parent
-      parent[3]
-    else
-      null
-  return new node.Class(name,parent,body)
-}
-
-extendee = identifier
-classBody = _ TERMINDENT b:classBlock DEDENT TERM{ return b; }
-//    / _ THEN _ s:classStatement { return s; }
-classBlock = s:classStatement ss:(_ TERMINATOR _ classStatement)* TERMINATOR?{
-  return new node.Block([s].concat(ss.map((s)->s[3])));
-}
-classStatement
-  = constructor / ex:(instanceAssignment / expr) {return new node.Expr(ex);}
-  / conditional
-instanceAssignment = key:ObjectIni _ ":" _ e:
-  ( TERMINDENT e:expression DEDENT { return {expr: e}; }
-      / TERMINATOR? _ e:secondaryExpression { return {expr: e}; })
-{
-        return new node.InsAssign(key, e.expr);
-}
-constructor = CONSTRUCTOR _ ":" _ e:
-  ( TERMINDENT e:func DEDENT { return {expr: e}; }
-      / TERMINATOR? _ e:func { return {expr: e}; })
-{
-        return new node.Constructor(e.expr);
-}
-
-
-argumentList = "(" _ a:argumentListContents? _ ")"{return a || []}
-argumentListContents = e:argument es:(_ ("," / TERMINATOR) _ argument)* ("," / TERMINATOR)? {return [e].concat(es.map((e)->e[3]));} /
-TERMINDENT a:argumentListContents DEDENT TERMINATOR? {return a;}
-argument = expression
-
-secondaryArgumentList = "(" _ a:secondaryArgumentContents? _ ")"{return a || []}
-secondaryArgumentContents = e:secondaryArgument es:(_ ("," / TERMINATOR) _ secondaryArgument)* ("," / TERMINATOR)? {return [e].concat(es.map((e)->e[3]));} /
-TERMINDENT a:secondaryArgumentContents DEDENT TERMINATOR? {return a;}
-secondaryArgument = secondaryExpression
-
-
-member = e:(primary / NEW __ e:member args:argumentList {return new node.New(e,args)}) accesses:(memberAccessOps)* {
-  acc = us.reduce(accesses,(memo,a)->
-    memo.concat(a)
-  ,[])
-  if acc.length <= 0
-    return e
-  else
-    return new node.Member(e,acc)
-} / NEW __ e:member args:secondaryArgumentList{return new node.New(e,args);}
-memberAccess = e:(primary / NEW __ e:member args:argumentList {return new node.New(e,args);})
-  accesses:(argumentList memberAccessOps / memberAccessOps)+ {
-  acc = us.reduce(accesses,(memo, a)->memo.concat(a));
-  return new node.Member(e,acc);
-}
-memberAccessOps = TERMINATOR? _ "." TERMINATOR? _ e:memberNames {return [e]}
-// TERMINDENT "." _ e:memberNames memberAccessOps* DEDENT {return {op:[e]}} /
-memberNames = identifierName
-
-
-new = member / NEW __ e:(expr / new / leftHandSideExpression){return new node.New(e,[])}
-
-
-call = fn:member _ accesses:callAccesses? _ secondaryArgs:secondaryArgumentList?
+call = fn:caller _ accesses:callAccesses
 {
   c = fn
   if accesses
     c = us.foldl(accesses,createMemberCall,c)
-  if secondaryArgs
-    c = new node.Call(c,secondaryArgs)
   return c
 }
 callAccesses
-  = TERMINDENT as:callAccesses DEDENT { return as }
-  / al:argumentList c:callAccesses?
+  = al:argumentList
   {
-    return [{acc:"call",as:al}].concat(c || []);
+    return [{acc:"call",as:al}];
    }
-   / mal:memberAccessOps mc:callAccesses? {
-    return [{acc:"member",as:mal}].concat(mc || []);
-   }
+caller = left
+argumentList = "(" _ a:argumentListContents? _ ")"{return a || []}
+argumentListContents = e:argument es:(_ "," _ argument)*
+ {return [e].concat(es.map((e)->e[3]));}
+argument = binaryExpr / call
 
-leftHandSideExpression = call / new
+conditional = IF _ cond:ABExpr _ body:conditionalBody _ e:elseClause?
+{ return new node.Conditional(cond, body.block, e);}
+conditionalBody = b:funcBody{ return {block: b}; }
+elseClause = TERMINATOR? _ ELSE b:elseBody { return b; }
+elseBody = funcBody
 
-return = RETURN _ e:secondaryExpression? {return new node.Return(e || null);}
+leftExpr = call / primary
 
-binaryExpression = left:leftHandSideExpression rights:(_ o:binaryOperator TERMINATOR? _ e:(expr / leftHandSideExpression){return [o,e]})* {
+return = RETURN _ e:expressionworthy? {return new node.Return(e || null);}
+
+binaryExpr = left:leftExpr rights:(_ o:binaryOperator _ e:(expressionworthy / leftExpr){return [o,e]})* {
   return foldBinaryOp([left].concat(us.flatten(rights)));
 }
 CompoundAssignmentOperators = a:("&&" / "||" / [*/%] / e:"+" !"+" {return e;} / e:"-" !"-" {return e;}){
@@ -246,78 +130,10 @@ CompoundAssignmentOperators = a:("&&" / "||" / [*/%] / e:"+" !"+" {return e;} / 
 }
 binaryOperator = a:CompoundAssignmentOperators !"=" {return a;} / "<=" / ">=" / "<" / ">" / "==" {return "===";} / "!=" {return "!==";}
 
+left = identifier / r:THIS {return new node.This;}
+primary = literal / left
 
-primary
-  = literal / identifier / r:THIS {return new node.This;};
-
-
-literal = Number / bool / string / array / object
-
-
-object = "{" members:objectBody TERMINATOR? _ "}" {
-  return new node.Object(members);
-}
-objectBody = TERMINDENT members:objectMemberList DEDENT{return members;}
-  / _ members:objectMemberList? {return members || [];}
-objectMemberList = e:objectMember _ es:(objectMemberSeparator _ objectMember _)* ","?{
-  return [e].concat(es.map((e)->e[2]))
-}
-objectMemberSeparator = arrayMemberSeparator
-objectMember = implicitObjectLiteralMember
-  / v:ObjectIni {
-      return {key:v,value:v};
-  }
-
-ObjectIni = i:identifierName
-  / Number /string
-
-implicitObjectLiteral
-  = members:implicitObjectLiteralMemberList {
-    return new node.Object(members);
-  }
-implicitObjectLiteralMemberList
-  = e:implicitObjectLiteralMember es:(implicitObjectLiteralMemberSeparator implicitObjectLiteralMember)* {
-      return [e].concat(es.map((e)->e[1]));
-    }
-implicitObjectLiteralMemberSeparator
-  = TERMINATOR ","? _
-  / _ "," TERMINATOR? _
-implicitObjectLiteralMember
-  = key:ObjectIni _ ":" _ val:implicitObjectMemberValue {
-      return {key:key,value:val};
-    }
-implicitObjectMemberValue = expression / TERMINDENT o:implicitObjectLiteral DEDENT {return o;}
-
-
-array = "[" members:arrayBody TERMINATOR? _ "]" {return new node.Array(members);}
-arrayBody = TERMINDENT members:arrayMemberList DEDENT {return members;}
-  / _ members:arrayMemberList? {return members || [];}
-arrayMemberList = e:arrayMember _ es:(arrayMemberSeparator _ arrayMember _)* arrayMemberSeparator? {return [e].concat(es.map((e)->e[2]));}
-arrayMember = expr / member
-arrayMemberSeparator = (TERMINATOR _ ","?) / ("," TERMINATOR? _)
-
-string = "\"\"\"" d:(stringData / "'" / ("\"" "\""? !"\""))+ "\"\"\"" {
-      return new node.String(stripLeadingWhitespace(d.join('')));
-    }
-  / "'''" d:(stringData / "\"" / "#" / ("'" "'"? !"'"))+ "'''" {
-      return new node.String(stripLeadingWhitespace(d.join('')));
-    }
-  / "\"" d:(stringData / "'")* "\"" { return new node.String(d.join('')); }
-  / "'" d:(stringData / "\"" / "#")* "'" { return new node.String(d.join('')); }
-stringData
-    = [^"'\\#]
-    / UnicodeEscapeSequence
-    / "\\x" h:(hexDigit hexDigit) { return String.fromCharCode(parseInt(h, 16)); }
-    / "\\0" !decimalDigit { return '\0'; }
-    / "\\0" &decimalDigit { throw new SyntaxError(['string data'], 'octal escape sequence', offset(), line(), column()); }
-    / "\\b" { return '\b'; }
-    / "\\t" { return '\t'; }
-    / "\\n" { return '\n'; }
-    / "\\v" { return '\v'; }
-    / "\\f" { return '\f'; }
-    / "\\r" { return '\r'; }
-    / "\\" c:. { return c; }
-    / c:"#" !"{" { return c; }
+literal = Number / bool
 
 bool = TRUE {return new node.Bool(true)} / FALSE {return new node.Bool(false)}
 
@@ -330,21 +146,14 @@ integer "integer"
 decimalDigit = [0-9]
 hexDigit = [0-9a-fA-F]
 
-
 //keyword
 IF = a:"if" !identifierPart {return a}
-THEN = a:"then" !identifierPart {return a}
 ELSE = a:"else" !identifierPart {return a}
-CLASS = a:"class" !identifierPart {return a}
-EXTENDS = a:"extends" !identifierPart {return a}
-CONSTRUCTOR = a:"constructor" !identifierPart {return a}
-NEW = a:"new" !identifierPart {return a}
 RETURN = a:"return" !identifierPart {return a}
 THIS = a:"this" !identifierPart {return a}
 
 TRUE = a:"true" !identifierPart {return a}
 FALSE = a:"false" !identifierPart {return a}
-
 
 identifier = !reserved i:identifierName { return i; }
 identifierName = head:identifierStart tail:identifierPart* {
@@ -357,37 +166,28 @@ identifierStart
   / UnicodeEscapeSequence
 identifierPart
   = identifierStart
-// TODO: these produce lists and need to be joined
   / UnicodeCombiningMark
   / UnicodeDigit
   / UnicodeConnectorPunctuation
   / ZWNJ
   / ZWJ
 
-SharedKeywords
-  = ("true" / "false" / "null" / "this" / "new" / "delete" / "typeof" /
-  "instanceof" / "in" / "return" / "throw" / "break" / "continue" / "debugger" /
-  "if" / "else" / "switch" / "for" / "while" / "do" / "try" / "catch" /
-  "finally" / "class" / "extends" / "super") !identifierPart
+whiteSpace = [\u0009\u000B\u000C\u0020\u00A0\uFEFF\u1680\u180E\u2000-\u200A\u202F\u205F\u3000]
+  / "\r" / s:("\\" "\r"? "\n") { return s.join("");}
+_  = __?
+__ = ws:whiteSpace+ {return ws.join("");}
 
-JSKeywords
-  = ("case" / "default" / "function" / "var" / "void" / "with" / "const" /
-  "let" / "enum" / "export" / "import" / "native" / "implements" / "interface" /
-  "package" / "private" / "protected" / "public" / "static" / "yield") !identifierPart
+INDENT = "\uEFEF"
+DEDENT = ws:(TERMINATOR? _) "\uEFFE" { return ws.join(""); }
+TERM = n:("\r"? "\n"){return n.join("");} / "\uEFFF" { return ''; }
+TERMINATOR = t:(_ TERM)+ {return t.join("");}
+TERMINDENT = t:(TERMINATOR INDENT) {return t.join("");}
 
-CSKeywords
-  = ("undefined" / "then" / "unless" / "until" / "loop" / "off" / "by" / "when" /
-  "and" / "or" / "isnt" / "is" / "not" / "yes" / "no" / "on" / "of") !identifierPart
 
-StandardPredefinedMacros
-  = "__" ("FILENAME" / "LINE" / "DATETIMEMS" / "DATE" / "TIME") "__"
+Keywords
+  = ("true" / "false" / "return" / "if" / "else" / "this") !identifierPart
 
-reserved
-  = StandardPredefinedMacros
-  / SharedKeywords
-  / CSKeywords
-  / JSKeywords
-
+reserved = Keywords
 
 // unicode
 UnicodeEscapeSequence = "\\u" h0:hexDigit h1:hexDigit h2:hexDigit h3:hexDigit { return String.fromCharCode(parseInt(h0 + h1 + h2 + h3, 16)); }

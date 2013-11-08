@@ -32,7 +32,6 @@ Stmt = chars:ExcludeLineTerminator+ i:Indent {
      str = str + DEDENT + TERM + '\n'#" DEDENT "
      @indent.pop()
 
-  console.log str
   str
 }
 

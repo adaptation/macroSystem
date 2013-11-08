@@ -1,4 +1,9 @@
-a = 1
+1
+a = (c)->
+	if b = 3
+		b+c
+	else
+		return b - c
 
 class B
 	a:2
